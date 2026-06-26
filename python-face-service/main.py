@@ -82,6 +82,7 @@ def b64_to_cv2(b64: str) -> np.ndarray:
     """Decode base64 image to OpenCV BGR array."""
     if "," in b64:
         b64 = b64.split(",")[1]
+    b64 = b64.replace(" ", "+")
     raw = base64.b64decode(b64)
     img = Image.open(BytesIO(raw)).convert("RGB")
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
