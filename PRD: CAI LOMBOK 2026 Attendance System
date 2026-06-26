@@ -1,0 +1,44 @@
+# Project Brief: CAI LOMBOK 2026 Attendance System
+
+## Project Overview
+**Event Name:** CAI LOMBOK 2026  
+**Duration:** 3 Days  
+**Objective:** A high-speed, multi-modal attendance system to manage participants across 10 regional groups, ensuring seamless entry and automated reporting for seminar sessions.
+
+## Core Features
+
+### 1. Multi-Modal Attendance Scanning
+*   **Face Recognition:** Standby webcam mode capable of detecting and identifying multiple faces (>5) simultaneously as participants pass through.
+*   **RFID/QR Scanning:** Alternative methods for quick backup or dedicated check-ins.
+*   **Manual Entry:** Admin override for edge cases.
+
+### 2. Session Management
+*   **Multi-Day Scheduling:** Ability to define and manage sessions across the 3-day event.
+*   **Time Constraints:** Real-time tracking against session start and end times.
+*   **Automated Alerts:** A "1-hour remaining" trigger that prepares status reports.
+
+### 3. Group & Regional Monitoring
+*   **Structure:** 10 distinct groups (regions/areas), each with 5+ participants.
+*   **Attendance Tracking:** Real-time visibility into who has arrived and who is missing within each group.
+
+### 4. Notification & Reporting System
+*   **WhatsApp Integration:** Automated notifications sent to Group Pembina (Supervisors).
+*   **Content:** Detailed lists including participant names, arrival times, and "Not Present" status for missing attendees.
+*   **Timing:** Automated dispatch at T-1 hour before session end.
+
+## User Roles
+*   **Super Admin/Panitia:** Manages sessions, monitors total attendance, and oversees scanning stations.
+*   **Pembina (Supervisor):** Receives automated WhatsApp reports regarding their specific group's status.
+*   **Participant:** Passes through scanning stations for automated check-in.
+
+## Design Identity
+*   **System Name:** Precision Event System
+*   **Visual Style:** Professional, clean, and data-driven.
+*   **Primary Colors:** Professional Blue (#0052cc) on Light Surface.
+*   **Device Target:** Mobile-first (Admin/Monitor view).
+
+## Technical Requirements
+*   Webcam integration for real-time face detection.
+*   Database for participant and group mapping.
+*   WhatsApp API integration for automated messaging.
+*   Responsive mobile interface for on-site monitoring.

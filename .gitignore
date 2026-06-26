@@ -1,0 +1,31 @@
+# macOS files
+.DS_Store
+*.swp
+
+# Python Service
+python-face-service/.venv/
+python-face-service/__pycache__/
+python-face-service/face_db/
+python-face-service/*.pkl
+
+# Laravel Application
+laravel-app/.env
+laravel-app/.env.backup
+laravel-app/.env.production
+laravel-app/node_modules/
+laravel-app/vendor/
+laravel-app/public/storage
+laravel-app/storage/*.key
+laravel-app/storage/logs/*.log
+laravel-app/storage/framework/views/*.php
+laravel-app/storage/framework/cache/data/*
+laravel-app/storage/framework/sessions/*
+laravel-app/database/*.sqlite
+laravel-app/public/build/
+laravel-app/public/hot/
+
+# IDE files
+.idea/
+.vscode/
+.zed/
+.cursor/
