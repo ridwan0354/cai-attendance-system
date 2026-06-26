@@ -95,6 +95,27 @@
         }
         .nav-link:hover, .nav-link.active { background: var(--primary-lt); color: var(--primary); }
 
+        @media (max-width: 600px) {
+            .navbar {
+                padding: 0.5rem 0.75rem;
+                height: auto;
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: center;
+            }
+            .brand-text {
+                display: none;
+            }
+            .navbar-nav {
+                width: 100%;
+                justify-content: space-around;
+            }
+            .nav-link {
+                padding: 0.35rem 0.6rem;
+                font-size: 0.8rem;
+            }
+        }
+
         /* Main content */
         .main-content { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
 
@@ -195,7 +216,7 @@
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            Precision Event System
+            <span class="brand-text">Precision Event System</span>
             <span class="badge">CAI 2026</span>
         </a>
         <div class="navbar-nav">

@@ -68,6 +68,7 @@
     }
     .status-dot.active  { background: #00e676; box-shadow: 0 0 8px #00e676; animation: pulse-dot 1.5s infinite; }
     .status-dot.error   { background: #ff5252; }
+    .status-dot.warning { background: #ff9800; box-shadow: 0 0 8px #ff9800; animation: pulse-dot 1.5s infinite; }
     .status-dot.loading { background: #ffd600; animation: pulse-dot 1s infinite; }
     @keyframes pulse-dot {
         0%, 100% { opacity: 1; transform: scale(1); }
@@ -337,6 +338,44 @@
     .recognition-popup .person-name { font-size: 1.25rem; font-weight: 800; color: white; }
     .recognition-popup .person-group { font-size: .85rem; color: rgba(255,255,255,.5); margin-top: 2px; }
     .recognition-popup .confidence { font-size: .75rem; color: #00e676; margin-top: .5rem; }
+
+    @media (max-width: 900px) {
+        .scanner-layout {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            min-height: calc(100vh - 56px);
+        }
+        .webcam-panel {
+            height: 450px;
+            width: 100%;
+            flex-shrink: 0;
+        }
+        .side-panel {
+            border-left: none;
+            border-top: 1px solid rgba(255,255,255,.08);
+            height: auto;
+            flex: none;
+            min-height: 400px;
+        }
+        .live-feed {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .webcam-panel {
+            height: 320px;
+        }
+        .recognition-popup {
+            min-width: 85%;
+            padding: 1rem;
+        }
+        .recognition-popup .person-name {
+            font-size: 1.1rem;
+        }
+    }
 </style>
 @endpush
 
@@ -517,7 +556,11 @@ async function loadFaceApi() {
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
         ]);
         faceApiLoaded = true;
-        setStatus('active', 'Siap memindai');
+        if (!SESSION_ID) {
+            setStatus('warning', 'Sesi tidak aktif! Aktifkan sesi di panel Admin.');
+        } else {
+            setStatus('active', 'Siap memindai');
+        }
         startScanning();
     } catch (err) {
         setStatus('error', 'Gagal memuat model deteksi: ' + err.message);
@@ -549,7 +592,11 @@ function toggleScanning() {
         startScanning();
         btn.textContent = '⏸ Pause Scan';
         btn.className = 'ctrl-btn primary';
-        setStatus('active', 'Siap memindai');
+        if (!SESSION_ID) {
+            setStatus('warning', 'Sesi tidak aktif! Aktifkan sesi di panel Admin.');
+        } else {
+            setStatus('active', 'Siap memindai');
+        }
     } else {
         stopScanning();
         btn.textContent = '▶ Resume Scan';
@@ -763,7 +810,11 @@ function drawFaceBoxes() {
         let text = 'Scanning...';
         let isGlow = true;
 
-        if (face.status === 'processing') {
+        if (!SESSION_ID) {
+            color = '#ff9800'; // orange for warning
+            text = 'Sesi Belum Aktif';
+            isGlow = false;
+        } else if (face.status === 'processing') {
             color = '#ffd600'; // yellow for processing
             text = 'Mengidentifikasi...';
         } else if (face.status === 'recognized' || face.status === 'duplicate') {
