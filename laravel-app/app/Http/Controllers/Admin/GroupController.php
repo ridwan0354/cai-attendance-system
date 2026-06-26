@@ -23,13 +23,21 @@ class GroupController extends Controller
     {
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
-            'region_code'   => 'required|string|max:10|unique:groups',
+            'region_code'   => 'required|string|max:20|unique:groups',
             'pembina_name'  => 'required|string|max:255',
             'pembina_phone' => 'required|string|max:20',
             'color'         => 'required|string|max:7',
         ]);
 
-        Group::create($validated);
+        $group = Group::create($validated);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'group'   => $group
+            ]);
+        }
+
         return redirect()->route('admin.groups.index')->with('success', 'Grup berhasil dibuat.');
     }
 

@@ -56,8 +56,13 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Grup *</label>
-                    <select name="group_id">
+                    <label style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Grup *</span>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="openAddGroupModal()" style="padding: 2px 8px; font-size: 0.75rem;">
+                            ➕ Buat Grup Baru
+                        </button>
+                    </label>
+                    <select name="group_id" id="groupIdSelect" required>
                         @foreach($groups as $g)
                             <option value="{{ $g->id }}" {{ $participant->group_id == $g->id ? 'selected' : '' }}>{{ $g->name }}</option>
                         @endforeach
@@ -119,12 +124,115 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Buat Grup Baru -->
+<div id="groupModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+    <div class="modal-content card" style="background-color: #fff; margin: auto; padding: 1.5rem; border-radius: 8px; width: 100%; max-width: 450px; box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200);">
+        <h3 style="margin-bottom: 1rem; font-weight: 800; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; color: var(--neutral-900);">
+            <span>➕ Tambah Grup Baru</span>
+            <span onclick="closeAddGroupModal()" style="cursor: pointer; font-size: 1.25rem; color: var(--neutral-500);">&times;</span>
+        </h3>
+        
+        <form id="newGroupForm" onsubmit="saveNewGroup(event)">
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label>Nama Grup *</label>
+                <input type="text" id="modalGroupName" required placeholder="Contoh: Lombok Barat">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label>Kode Regional * (Harus unik/singkat)</label>
+                <input type="text" id="modalGroupRegionCode" required placeholder="Contoh: LOBAR">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label>Nama Pembina *</label>
+                <input type="text" id="modalGroupPembinaName" required placeholder="Nama Pembina / Utusan">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.85rem;">
+                <label>No. WA Pembina *</label>
+                <input type="text" id="modalGroupPembinaPhone" required placeholder="Contoh: 081234567890">
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label>Warna Representasi (UI)</label>
+                <input type="color" id="modalGroupColor" value="#0052cc" style="padding: 0; height: 36px; cursor: pointer;">
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeAddGroupModal()">Batal</button>
+                <button type="submit" class="btn btn-primary" id="modalSubmitBtn">💾 Simpan Grup</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
 const PARTICIPANT_ID = {{ $participant->id }};
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+
+function openAddGroupModal() {
+    document.getElementById('groupModal').style.display = 'flex';
+}
+
+function closeAddGroupModal() {
+    document.getElementById('groupModal').style.display = 'none';
+    document.getElementById('newGroupForm').reset();
+}
+
+async function saveNewGroup(event) {
+    event.preventDefault();
+    
+    const submitBtn = document.getElementById('modalSubmitBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Menyimpan...';
+    
+    const payload = {
+        name: document.getElementById('modalGroupName').value,
+        region_code: document.getElementById('modalGroupRegionCode').value,
+        pembina_name: document.getElementById('modalGroupPembinaName').value,
+        pembina_phone: document.getElementById('modalGroupPembinaPhone').value,
+        color: document.getElementById('modalGroupColor').value,
+    };
+    
+    try {
+        const response = await fetch('/admin/groups', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            const select = document.getElementById('groupIdSelect');
+            const newOption = document.createElement('option');
+            newOption.value = data.group.id;
+            newOption.textContent = data.group.name;
+            newOption.selected = true;
+            select.appendChild(newOption);
+            
+            showToast(`Grup ${data.group.name} berhasil dibuat!`, 'success');
+            closeAddGroupModal();
+        } else {
+            const errorMsg = data.message || 'Gagal menyimpan grup. Pastikan kode regional unik.';
+            alert(errorMsg);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan koneksi.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Simpan Grup';
+    }
+}
+
 let stream = null;
 
 async function startCamera() {
