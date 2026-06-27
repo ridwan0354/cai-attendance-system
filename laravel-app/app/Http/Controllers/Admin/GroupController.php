@@ -21,6 +21,24 @@ class GroupController extends Controller
 
     public function store(Request $request)
     {
+        if (!$request->has('region_code') || empty($request->input('region_code'))) {
+            $name = $request->input('name', '');
+            $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $name));
+            if (empty($code)) {
+                $code = 'GRP' . rand(100, 999);
+            }
+            $code = substr($code, 0, 15);
+            
+            $originalCode = $code;
+            $suffix = 1;
+            while (\App\Models\Group::where('region_code', $code)->exists()) {
+                $code = substr($originalCode, 0, 15 - strlen((string)$suffix)) . $suffix;
+                $suffix++;
+            }
+            
+            $request->merge(['region_code' => $code]);
+        }
+
         $validated = $request->validate([
             'name'          => 'required|string|max:255',
             'region_code'   => 'required|string|max:20|unique:groups',

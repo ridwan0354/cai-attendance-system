@@ -6,7 +6,7 @@
     <div class="card"><div class="card-body">
         <form action="{{ route('admin.groups.store') }}" method="POST">
             @csrf
-            @foreach(['name'=>'Nama Grup','region_code'=>'Kode Region (maks 10 karakter)','pembina_name'=>'Nama Pembina','pembina_phone'=>'No WA Pembina (format: 08xxx atau 62xxx)'] as $field => $label)
+            @foreach(['name'=>'Nama Grup','pembina_name'=>'Nama Pembina','pembina_phone'=>'No WA Pembina (format: 08xxx atau 62xxx)'] as $field => $label)
             <div style="margin-bottom:1rem;">
                 <label style="display:block;font-size:.84rem;font-weight:600;margin-bottom:.35rem;">{{ $label }} *</label>
                 <input type="text" name="{{ $field }}" required value="{{ old($field) }}" style="width:100%;padding:.55rem .8rem;border:1.5px solid var(--neutral-200);border-radius:6px;font-size:.875rem;font-family:inherit;">

@@ -115,10 +115,6 @@
                 <input type="text" id="modalGroupName" required placeholder="Contoh: Lombok Barat">
             </div>
             
-            <div class="form-group" style="margin-bottom: 0.85rem;">
-                <label>Kode Regional * (Harus unik/singkat)</label>
-                <input type="text" id="modalGroupRegionCode" required placeholder="Contoh: LOBAR">
-            </div>
             
             <div class="form-group" style="margin-bottom: 0.85rem;">
                 <label>Nama Pembina *</label>
@@ -164,7 +160,6 @@ async function saveNewGroup(event) {
     
     const payload = {
         name: document.getElementById('modalGroupName').value,
-        region_code: document.getElementById('modalGroupRegionCode').value,
         pembina_name: document.getElementById('modalGroupPembinaName').value,
         pembina_phone: document.getElementById('modalGroupPembinaPhone').value,
         color: document.getElementById('modalGroupColor').value,
