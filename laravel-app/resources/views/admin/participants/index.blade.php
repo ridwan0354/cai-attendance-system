@@ -54,9 +54,16 @@
                     @endforeach
                 </select>
             </div>
+            <div style="width: 220px; min-width: 160px;">
+                <select name="registration_status" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.875rem; outline: none; background: white; font-family: inherit;">
+                    <option value="">— Status Registrasi —</option>
+                    <option value="registered" {{ request('registration_status') == 'registered' ? 'selected' : '' }}>Sudah Registrasi</option>
+                    <option value="unregistered" {{ request('registration_status') == 'unregistered' ? 'selected' : '' }}>Belum Registrasi</option>
+                </select>
+            </div>
             <div style="display: flex; gap: 0.5rem;">
                 <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.25rem;">🔍 Cari</button>
-                @if(request()->filled('search') || request()->filled('group_id'))
+                @if(request()->filled('search') || request()->filled('group_id') || request()->filled('registration_status'))
                     <a href="{{ route('admin.participants.index') }}" class="btn btn-outline" style="padding: 0.5rem 1.25rem; text-decoration: none; display: inline-flex; align-items: center;">Reset</a>
                 @endif
             </div>
@@ -74,6 +81,7 @@
                         <th>L/P</th>
                         <th>No. WA</th>
                         <th>Wajah Terdaftar</th>
+                        <th>Status Registrasi</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
@@ -90,6 +98,31 @@
                         <td>
                             @if($p->face_registered)
                                 <span class="badge badge-success">✅ Terdaftar</span>
+                            @else
+                                <span class="badge badge-danger">❌ Belum</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($p->registered_at)
+                                <div style="font-weight: 600; color: var(--success); font-size: 0.85rem;">
+                                    ✅ Terdaftar
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--neutral-500); margin-top: 2px;">
+                                    🕒 {{ $p->registered_at->format('d/m H:i') }}
+                                </div>
+                                @if($p->supplies->count() > 0)
+                                    <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;">
+                                        @foreach($p->supplies as $supply)
+                                            <span class="badge" style="background: var(--neutral-100); color: var(--neutral-700); border: 1.5px solid var(--neutral-200); font-size: 0.65rem; padding: 2px 5px; border-radius: 4px; line-height: 1;">
+                                                {{ $supply->name }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <div style="font-size: 0.68rem; color: var(--neutral-400); font-style: italic; margin-top: 4px;">
+                                        (Tanpa Barang)
+                                    </div>
+                                @endif
                             @else
                                 <span class="badge badge-danger">❌ Belum</span>
                             @endif
@@ -151,9 +184,12 @@
                 </div>
             </div>
             
+            <div id="checkInStatusArea" style="margin-top: 0.5rem; margin-bottom: 1rem; text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--neutral-600); background: var(--neutral-50); padding: 0.65rem; border-radius: 6px; border: 1.5px solid var(--neutral-200); display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <span>📷 Menghubungkan kamera...</span>
+            </div>
+
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="closeCheckInModal()">Batal</button>
-                <button type="button" class="btn btn-primary" id="checkInCaptureBtn" onclick="verifyFace()" disabled>📸 Verifikasi Wajah</button>
             </div>
         </div>
         
@@ -209,11 +245,30 @@ let checkInStream = null;
 let currentParticipantId = null;
 let currentParticipantName = '';
 let verifiedConfidence = 0;
+let checkInScanInterval = null;
+let isVerifying = false;
+
+// Audio feedback
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function playSuccessSound() {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(1100, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+}
 
 async function openCheckInModal(id, name) {
     currentParticipantId = id;
     currentParticipantName = name;
     verifiedConfidence = 0;
+    isVerifying = false;
 
     // Reset UI
     document.getElementById('checkInTitle').textContent = `🎁 Registrasi: ${name}`;
@@ -221,8 +276,9 @@ async function openCheckInModal(id, name) {
     document.getElementById('checkInStep2').style.display = 'none';
     document.getElementById('checkInLoadingOverlay').style.display = 'none';
     document.getElementById('checkInScannerLine').style.display = 'none';
-    document.getElementById('checkInCaptureBtn').disabled = true;
     document.getElementById('checkInNotes').value = '';
+    
+    updateStatusArea('📷 Menghubungkan kamera...', 'neutral');
 
     // Show modal
     document.getElementById('checkInModal').style.display = 'flex';
@@ -232,23 +288,50 @@ async function openCheckInModal(id, name) {
 }
 
 function closeCheckInModal() {
+    stopScanningLoop();
     document.getElementById('checkInModal').style.display = 'none';
     stopCheckInCamera();
 }
 
+function updateStatusArea(text, type) {
+    const area = document.getElementById('checkInStatusArea');
+    if (!area) return;
+    area.textContent = text;
+    if (type === 'success') {
+        area.style.color = 'var(--success)';
+        area.style.borderColor = 'var(--success)';
+        area.style.background = 'var(--success-lt)';
+    } else if (type === 'danger') {
+        area.style.color = 'var(--danger)';
+        area.style.borderColor = 'var(--danger)';
+        area.style.background = 'var(--danger-lt)';
+    } else if (type === 'warning') {
+        area.style.color = '#7a4f00';
+        area.style.borderColor = 'var(--warning)';
+        area.style.background = 'var(--warning-lt)';
+    } else {
+        area.style.color = 'var(--neutral-600)';
+        area.style.borderColor = 'var(--neutral-200)';
+        area.style.background = 'var(--neutral-50)';
+    }
+}
+
 async function startCheckInCamera() {
     const video = document.getElementById('checkInVideo');
-    const captureBtn = document.getElementById('checkInCaptureBtn');
     
     try {
         checkInStream = await navigator.mediaDevices.getUserMedia({
             video: { width: 640, height: 480, facingMode: 'user' }
         });
         video.srcObject = checkInStream;
-        captureBtn.disabled = false;
+        
+        video.onloadedmetadata = () => {
+            updateStatusArea('🔍 Mencari wajah peserta...', 'warning');
+            startScanningLoop();
+        };
     } catch (err) {
         console.error("Camera access failed", err);
-        alert("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+        updateStatusArea('❌ Gagal mengakses kamera. Berikan izin akses.', 'danger');
     }
 }
 
@@ -261,18 +344,39 @@ function stopCheckInCamera() {
     if (video) video.srcObject = null;
 }
 
+function startScanningLoop() {
+    stopScanningLoop();
+    const scannerLine = document.getElementById('checkInScannerLine');
+    if (scannerLine) {
+        scannerLine.style.display = 'block';
+        scannerLine.classList.add('scanner-active-line');
+    }
+    checkInScanInterval = setInterval(verifyFace, 1500);
+}
+
+function stopScanningLoop() {
+    if (checkInScanInterval) {
+        clearInterval(checkInScanInterval);
+        checkInScanInterval = null;
+    }
+    const scannerLine = document.getElementById('checkInScannerLine');
+    if (scannerLine) {
+        scannerLine.style.display = 'none';
+        scannerLine.classList.remove('scanner-active-line');
+    }
+}
+
 async function verifyFace() {
+    if (isVerifying) return;
+    
     const video = document.getElementById('checkInVideo');
     const canvas = document.getElementById('checkInCanvas');
-    const overlay = document.getElementById('checkInLoadingOverlay');
-    const scannerLine = document.getElementById('checkInScannerLine');
+    
+    if (!video || video.readyState !== 4) return;
+    
+    isVerifying = true;
+    updateStatusArea('⚡ Memverifikasi wajah...', 'warning');
 
-    // Show loading & scan animation
-    overlay.style.display = 'flex';
-    scannerLine.style.display = 'block';
-    scannerLine.classList.add('scanner-active-line');
-
-    // Capture frame
     const ctx = canvas.getContext('2d');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -294,12 +398,13 @@ async function verifyFace() {
 
         if (response.ok && data.success) {
             if (data.verified) {
-                // Success! Transit to Step 2
+                playSuccessSound();
+                stopScanningLoop();
+                
                 verifiedConfidence = data.confidence;
                 document.getElementById('verifiedConfidence').textContent = `${data.confidence}% cocok`;
                 document.getElementById('checkInNotes').value = data.notes || '';
                 
-                // Show status
                 const statusText = document.getElementById('registeredStatusText');
                 if (data.registered_at) {
                     statusText.innerHTML = `✅ Terdaftar: <span style="font-weight:600;">${data.registered_at}</span>`;
@@ -307,7 +412,6 @@ async function verifyFace() {
                     statusText.textContent = 'Belum pernah registrasi';
                 }
 
-                // Render Supplies Checklist
                 const container = document.getElementById('suppliesChecklistContainer');
                 container.innerHTML = '';
                 
@@ -340,23 +444,20 @@ async function verifyFace() {
                     container.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:0.5rem;">Tidak ada jenis barang registrasi. Hubungi Admin.</div>';
                 }
 
-                // Show step 2
                 document.getElementById('checkInStep1').style.display = 'none';
                 document.getElementById('checkInStep2').style.display = 'block';
                 stopCheckInCamera();
             } else {
-                alert(data.message || 'Wajah tidak cocok.');
+                updateStatusArea('🔍 Wajah tidak cocok/terdeteksi. Memindai ulang...', 'danger');
             }
         } else {
-            alert(data.message || 'Gagal memverifikasi wajah.');
+            updateStatusArea('⚠️ Gagal menghubungi server verifikasi. Memindai ulang...', 'danger');
         }
     } catch (err) {
         console.error(err);
-        alert('Terjadi kesalahan koneksi saat verifikasi wajah.');
+        updateStatusArea('⚠️ Gangguan koneksi. Memindai ulang...', 'danger');
     } finally {
-        overlay.style.display = 'none';
-        scannerLine.style.display = 'none';
-        scannerLine.classList.remove('scanner-active-line');
+        isVerifying = false;
     }
 }
 
@@ -367,7 +468,6 @@ async function submitCheckIn(event) {
     saveBtn.disabled = true;
     saveBtn.textContent = 'Menyimpan...';
 
-    // Get checked supply IDs
     const checkedSupplies = [];
     const checkboxes = document.querySelectorAll('#suppliesChecklistContainer input[type="checkbox"]');
     checkboxes.forEach(cb => {

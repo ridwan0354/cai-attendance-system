@@ -15,7 +15,7 @@ class ParticipantController extends Controller
 
     public function index(Request $request)
     {
-        $query = Participant::with('group');
+        $query = Participant::with(['group', 'supplies']);
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -25,6 +25,15 @@ class ParticipantController extends Controller
         if ($request->filled('group_id')) {
             $groupId = $request->input('group_id');
             $query->where('group_id', $groupId);
+        }
+
+        if ($request->filled('registration_status')) {
+            $status = $request->input('registration_status');
+            if ($status === 'registered') {
+                $query->whereNotNull('registered_at');
+            } elseif ($status === 'unregistered') {
+                $query->whereNull('registered_at');
+            }
         }
 
         $participants = $query->orderBy('name')->paginate(20)->withQueryString();
