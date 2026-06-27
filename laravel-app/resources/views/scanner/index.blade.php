@@ -408,7 +408,7 @@
         <div class="recognition-popup" id="recognitionPopup">
             <div class="check-icon">✓</div>
             <div class="person-name" id="popupName">Ahmad Fauzi</div>
-            <div class="person-group" id="popupGroup">Grup Lombok Barat</div>
+            <div class="person-group" id="popupGroup">Kelompok Lombok Barat</div>
             <div class="confidence" id="popupConfidence">Confidence: 95.2%</div>
         </div>
 
@@ -781,7 +781,7 @@ function handleRecognition(match) {
 
     // Popup
     document.getElementById('popupName').textContent = match.participant_name;
-    document.getElementById('popupGroup').textContent = 'Grup ' + match.group_name;
+    document.getElementById('popupGroup').textContent = 'Kelompok ' + match.group_name;
     document.getElementById('popupConfidence').textContent =
         match.confidence_score ? `Confidence: ${match.confidence_score}%` : '';
     popup.classList.add('show');

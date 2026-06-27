@@ -45,13 +45,13 @@
 
                 <div class="form-group">
                     <label style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Grup Regional *</span>
+                        <span>Kelompok Regional *</span>
                         <button type="button" class="btn btn-outline btn-sm" onclick="openAddGroupModal()" style="padding: 2px 8px; font-size: 0.75rem;">
-                            ➕ Buat Grup Baru
+                            ➕ Buat Kelompok Baru
                         </button>
                     </label>
                     <select name="group_id" id="groupIdSelect" required>
-                        <option value="">— Pilih Grup —</option>
+                        <option value="">— Pilih Kelompok —</option>
                         @foreach($groups as $g)
                             <option value="{{ $g->id }}" {{ old('group_id') == $g->id ? 'selected' : '' }}>
                                 {{ $g->name }}
@@ -101,17 +101,17 @@
     </div>
 </div>
 
-<!-- Modal Buat Grup Baru -->
+<!-- Modal Buat Kelompok Baru -->
 <div id="groupModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
     <div class="modal-content card" style="background-color: #fff; margin: auto; padding: 1.5rem; border-radius: 8px; width: 100%; max-width: 450px; box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200);">
         <h3 style="margin-bottom: 1rem; font-weight: 800; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; color: var(--neutral-900);">
-            <span>➕ Tambah Grup Baru</span>
+            <span>➕ Tambah Kelompok Baru</span>
             <span onclick="closeAddGroupModal()" style="cursor: pointer; font-size: 1.25rem; color: var(--neutral-500);">&times;</span>
         </h3>
         
         <form id="newGroupForm" onsubmit="saveNewGroup(event)">
             <div class="form-group" style="margin-bottom: 0.85rem;">
-                <label>Nama Grup *</label>
+                <label>Nama Kelompok *</label>
                 <input type="text" id="modalGroupName" required placeholder="Contoh: Lombok Barat">
             </div>
             
@@ -133,7 +133,7 @@
             
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="closeAddGroupModal()">Batal</button>
-                <button type="submit" class="btn btn-primary" id="modalSubmitBtn">💾 Simpan Grup</button>
+                <button type="submit" class="btn btn-primary" id="modalSubmitBtn">💾 Simpan Kelompok</button>
             </div>
         </form>
     </div>
@@ -186,10 +186,10 @@ async function saveNewGroup(event) {
             newOption.selected = true;
             select.appendChild(newOption);
             
-            showToast(`Grup ${data.group.name} berhasil dibuat!`, 'success');
+            showToast(`Kelompok ${data.group.name} berhasil dibuat!`, 'success');
             closeAddGroupModal();
         } else {
-            const errorMsg = data.message || 'Gagal menyimpan grup. Pastikan kode regional unik.';
+            const errorMsg = data.message || 'Gagal menyimpan kelompok.';
             alert(errorMsg);
         }
     } catch (err) {
@@ -197,7 +197,7 @@ async function saveNewGroup(event) {
         alert('Terjadi kesalahan koneksi.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = '💾 Simpan Grup';
+        submitBtn.textContent = '💾 Simpan Kelompok';
     }
 }
 

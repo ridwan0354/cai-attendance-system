@@ -56,7 +56,7 @@ class GroupController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.groups.index')->with('success', 'Grup berhasil dibuat.');
+        return redirect()->route('admin.groups.index')->with('success', 'Kelompok berhasil dibuat.');
     }
 
     public function edit(Group $group)
@@ -74,12 +74,12 @@ class GroupController extends Controller
         ]);
 
         $group->update($validated);
-        return redirect()->route('admin.groups.index')->with('success', 'Grup diperbarui.');
+        return redirect()->route('admin.groups.index')->with('success', 'Kelompok diperbarui.');
     }
 
     public function destroy(Group $group)
     {
         $group->delete();
-        return redirect()->route('admin.groups.index')->with('success', 'Grup dihapus.');
+        return redirect()->route('admin.groups.index')->with('success', 'Kelompok dihapus.');
     }
 }

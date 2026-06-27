@@ -281,7 +281,7 @@
         <!-- Group cards grid -->
         <div class="card">
             <div class="card-header">
-                <span class="card-title">📍 Status Per Grup Regional</span>
+                <span class="card-title">📍 Status Per Kelompok Regional</span>
                 <span class="badge badge-primary" id="groupUpdateBadge">Live</span>
             </div>
             <div class="card-body" style="padding: .75rem;">

@@ -21,7 +21,7 @@
 <div class="admin-layout">
     <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--neutral-200); margin-bottom: 1.5rem; padding-bottom: 0.25rem; flex-wrap: wrap;">
         <a href="{{ route('admin.participants.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--primary); color: var(--primary); font-size: .875rem;">👥 Peserta</a>
-        <a href="{{ route('admin.groups.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">🗺️ Grup</a>
+        <a href="{{ route('admin.groups.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">🗺️ Kelompok</a>
         <a href="{{ route('admin.sessions.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">📅 Sesi</a>
     </div>
 
@@ -45,7 +45,7 @@
             </div>
             <div style="width: 220px; min-width: 160px;">
                 <select name="group_id" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.875rem; outline: none; background: white; font-family: inherit;">
-                    <option value="">— Semua Grup —</option>
+                    <option value="">— Semua Kelompok —</option>
                     @foreach($groups as $g)
                         <option value="{{ $g->id }}" {{ request('group_id') == $g->id ? 'selected' : '' }}>
                             {{ $g->name }}
@@ -69,7 +69,7 @@
                     <tr>
                         <th>#</th>
                         <th>Nama</th>
-                        <th>Grup</th>
+                        <th>Kelompok</th>
                         <th>L/P</th>
                         <th>No. WA</th>
                         <th>Wajah Terdaftar</th>
