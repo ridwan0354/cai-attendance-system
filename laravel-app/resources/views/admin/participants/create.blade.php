@@ -75,6 +75,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label>ID QR Code (Opsional)</label>
+                    <input type="text" name="qr_code" placeholder="Scan atau ketik ID QR Code..." value="{{ old('qr_code') }}">
+                </div>
+
+                <div class="form-group">
                     <label>Foto untuk Face Recognition</label>
                     <div class="webcam-section">
                         <video id="captureVideo" autoplay playsinline muted></video>

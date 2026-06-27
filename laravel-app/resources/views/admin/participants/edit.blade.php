@@ -83,6 +83,11 @@
                     <input type="text" name="phone" required placeholder="Contoh: 081234567890" value="{{ $participant->phone }}">
                 </div>
 
+                <div class="form-group">
+                    <label>ID QR Code (Opsional)</label>
+                    <input type="text" name="qr_code" placeholder="Scan atau ketik ID QR Code..." value="{{ $participant->qr_code }}">
+                </div>
+
                 <div style="display:flex;gap:.75rem;margin-top:1.5rem;">
                     <button type="submit" class="btn btn-primary">💾 Update Data</button>
                     <a href="{{ route('admin.participants.index') }}" class="btn btn-outline">← Kembali</a>

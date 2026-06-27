@@ -80,6 +80,64 @@ class AttendanceController extends Controller
     }
 
     /**
+     * Process QR code check-in from scanner.
+     *
+     * POST /api/attendance/qr
+     */
+    public function processQR(Request $request): JsonResponse
+    {
+        $request->validate([
+            'qr_code'    => 'required|string',
+            'session_id' => 'nullable|integer|exists:event_sessions,id',
+        ]);
+
+        // Find participant by qr_code
+        $participant = Participant::where('qr_code', $request->input('qr_code'))->first();
+        if (!$participant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'QR Code tidak terdaftar.',
+            ], 404);
+        }
+
+        // Get active session if not specified
+        $sessionId = $request->input('session_id');
+        if (!$sessionId) {
+            $activeSession = Session::getActive();
+            if (!$activeSession) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada sesi aktif. Aktifkan sesi terlebih dahulu.',
+                ], 422);
+            }
+            $sessionId = $activeSession->id;
+        }
+
+        // Record attendance
+        $outcome = $this->recordAttendance(
+            participantId:   $participant->id,
+            sessionId:       $sessionId,
+            confidenceScore: null,
+            method:          'qr'
+        );
+
+        if (!$outcome) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Peserta sudah tercatat hadir di sesi ini.',
+            ], 409);
+        }
+
+        return response()->json([
+            'success'          => true,
+            'participant_name' => $participant->name,
+            'group_name'       => $participant->group->name,
+            'group_color'      => $participant->group->color,
+            'match'            => $outcome,
+        ]);
+    }
+
+    /**
      * Manual attendance entry (admin override).
      *
      * POST /api/attendance/manual

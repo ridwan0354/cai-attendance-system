@@ -55,6 +55,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 Route::prefix('api')->name('api.')->group(function () {
     // Attendance
     Route::post('attendance/face', [AttendanceController::class, 'processFace'])->name('attendance.face');
+    Route::post('attendance/qr', [AttendanceController::class, 'processQR'])->name('attendance.qr');
     Route::post('attendance/manual', [AttendanceController::class, 'processManual'])->name('attendance.manual');
     Route::get('attendance/{sessionId}', [AttendanceController::class, 'index'])->name('attendance.index');
 

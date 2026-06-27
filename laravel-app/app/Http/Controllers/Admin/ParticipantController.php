@@ -55,6 +55,7 @@ class ParticipantController extends Controller
             'group_id'    => 'required|exists:groups,id',
             'gender'      => 'required|string|in:Laki-laki,Perempuan',
             'phone'       => 'required|string|max:20',
+            'qr_code'     => 'nullable|string|max:100|unique:participants,qr_code',
             'photo'       => 'nullable|image|max:4096',
             'face_base64' => 'nullable|string', // from webcam capture
         ]);
@@ -69,6 +70,7 @@ class ParticipantController extends Controller
             'group_id'   => $validated['group_id'],
             'gender'     => $validated['gender'],
             'phone'      => $validated['phone'],
+            'qr_code'    => $validated['qr_code'],
             'photo_path' => $photoPath,
         ]);
 
@@ -109,6 +111,7 @@ class ParticipantController extends Controller
             'group_id' => 'required|exists:groups,id',
             'gender'   => 'required|string|in:Laki-laki,Perempuan',
             'phone'    => 'required|string|max:20',
+            'qr_code'  => 'nullable|string|max:100|unique:participants,qr_code,' . $participant->id,
         ]);
 
         $participant->update($validated);

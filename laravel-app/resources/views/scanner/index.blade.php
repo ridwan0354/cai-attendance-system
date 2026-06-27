@@ -477,6 +477,8 @@
 @push('scripts')
 <!-- face-api.js for browser-side face detection -->
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- jsQR for browser-side QR Code decoding -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -569,11 +571,16 @@ async function loadFaceApi() {
 }
 
 // ── Scanning loop ─────────────────────────────────────────────────────────────
+let isScanningQR = false;
+let qrScanTimeout = null;
+let isProcessingQR = false;
+
 function startScanning() {
     if (!isDetecting) {
         isDetecting = true;
         detectionLoop();
         requestAnimationFrame(drawLoop);
+        startQRScanning();
     }
 }
 
@@ -582,6 +589,95 @@ function stopScanning() {
     trackedFaces = [];
     if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    stopQRScanning();
+}
+
+function startQRScanning() {
+    isScanningQR = true;
+    qrScanLoop();
+}
+
+function stopQRScanning() {
+    isScanningQR = false;
+    if (qrScanTimeout) {
+        clearTimeout(qrScanTimeout);
+        qrScanTimeout = null;
+    }
+}
+
+async function qrScanLoop() {
+    if (!isScanningQR) return;
+
+    if (isScanning && video.readyState === 4) {
+        try {
+            const qrCanvas = document.createElement('canvas');
+            qrCanvas.width = video.videoWidth;
+            qrCanvas.height = video.videoHeight;
+            const qrCtx = qrCanvas.getContext('2d');
+            qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
+
+            const imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert"
+            });
+
+            if (code && code.data && !isProcessingQR) {
+                isProcessingQR = true;
+                await processQRCheckIn(code.data);
+            }
+        } catch (e) {
+            console.error('QR decoding error:', e);
+        }
+    }
+
+    qrScanTimeout = setTimeout(qrScanLoop, 300);
+}
+
+async function processQRCheckIn(qrCode) {
+    if (!SESSION_ID) {
+        isProcessingQR = false;
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/attendance/qr', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({ qr_code: qrCode, session_id: SESSION_ID })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            handleRecognition({
+                participant_id: data.match.participant_id,
+                participant_name: data.participant_name,
+                group_name: data.group_name,
+                group_color: data.group_color,
+                method: 'qr'
+            });
+            
+            setTimeout(() => {
+                isProcessingQR = false;
+            }, 3500);
+        } else {
+            if (data.message) {
+                showToast(`❌ ${data.message}`, 'error');
+            }
+            setTimeout(() => {
+                isProcessingQR = false;
+            }, 2000);
+        }
+    } catch (err) {
+        console.error(err);
+        setTimeout(() => {
+            isProcessingQR = false;
+        }, 2000);
     }
 }
 
