@@ -13,10 +13,23 @@ class ParticipantController extends Controller
 {
     public function __construct(private FaceRecognitionService $faceService) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $participants = Participant::with('group')->orderBy('name')->paginate(20);
-        $groups = Group::all();
+        $query = Participant::with('group');
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where('name', 'like', "%{$search}%");
+        }
+
+        if ($request->filled('group_id')) {
+            $groupId = $request->input('group_id');
+            $query->where('group_id', $groupId);
+        }
+
+        $participants = $query->orderBy('name')->paginate(20)->withQueryString();
+        $groups = Group::orderBy('name')->get();
+
         return view('admin.participants.index', compact('participants', 'groups'));
     }
 

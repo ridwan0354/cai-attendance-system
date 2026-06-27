@@ -37,6 +37,31 @@
         <div class="alert-warning">⚠️ {{ session('warning') }}</div>
     @endif
 
+    <!-- Search & Filter -->
+    <div class="card" style="margin-bottom: 1.25rem; padding: 1rem; background: white;">
+        <form action="{{ route('admin.participants.index') }}" method="GET" style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" name="search" placeholder="Cari nama peserta..." value="{{ request('search') }}" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.875rem; outline: none; font-family: inherit;">
+            </div>
+            <div style="width: 220px; min-width: 160px;">
+                <select name="group_id" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.875rem; outline: none; background: white; font-family: inherit;">
+                    <option value="">— Semua Grup —</option>
+                    @foreach($groups as $g)
+                        <option value="{{ $g->id }}" {{ request('group_id') == $g->id ? 'selected' : '' }}>
+                            {{ $g->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.25rem;">🔍 Cari</button>
+                @if(request()->filled('search') || request()->filled('group_id'))
+                    <a href="{{ route('admin.participants.index') }}" class="btn btn-outline" style="padding: 0.5rem 1.25rem; text-decoration: none; display: inline-flex; align-items: center;">Reset</a>
+                @endif
+            </div>
+        </form>
+    </div>
+
     <div class="card">
         <div class="card-body" style="padding: 0;">
             <table>
@@ -57,7 +82,7 @@
                         <td>{{ $p->id }}</td>
                         <td class="participant-name">{{ $p->name }}</td>
                         <td>
-                            <span class="badge badge-primary" style="background: {{ $p->group->color }}">{{ $p->group->name }}</span>
+                            <span class="badge" style="background: {{ $p->group->color }}; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">{{ $p->group->name }}</span>
                         </td>
                         <td>{{ $p->gender ?: '-' }}</td>
                         <td>{{ $p->phone ?: '-' }}</td>
