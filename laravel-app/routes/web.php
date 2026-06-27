@@ -6,6 +6,7 @@ use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\Admin\GroupController;
+use App\Http\Controllers\Admin\SupplyController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -31,6 +32,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('participants.register-face');
     Route::get('participants/{participant}/face-image', [ParticipantController::class, 'faceImage'])
         ->name('participants.face-image');
+    Route::post('participants/{participant}/verify-checkin', [ParticipantController::class, 'verifyCheckIn'])
+        ->name('participants.verify-checkin');
+    Route::post('participants/{participant}/save-checkin', [ParticipantController::class, 'saveCheckIn'])
+        ->name('participants.save-checkin');
 
     // Sessions
     Route::resource('sessions', SessionController::class);
@@ -41,6 +46,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Groups
     Route::resource('groups', GroupController::class);
+
+    // Supplies
+    Route::resource('supplies', SupplyController::class)->only(['index', 'store', 'destroy']);
 });
 
 // ── API Routes (JSON) ─────────────────────────────────────────────────────────

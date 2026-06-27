@@ -151,4 +151,107 @@ class ParticipantController extends Controller
 
         return response()->file($path);
     }
+
+    /**
+     * Verify participant's face for check-in.
+     * POST /admin/participants/{participant}/verify-checkin
+     */
+    public function verifyCheckIn(Request $request, Participant $participant)
+    {
+        $request->validate([
+            'image' => 'required|string',
+        ]);
+
+        $result = $this->faceService->recognize($request->input('image'));
+
+        if (!$result['success'] || empty($result['matches'])) {
+            return response()->json([
+                'success' => true,
+                'verified' => false,
+                'message' => 'Wajah tidak terdeteksi atau tidak dikenali.',
+            ]);
+        }
+
+        $matched = false;
+        $confidence = 0;
+        foreach ($result['matches'] as $match) {
+            if ((int)$match['participant_id'] === (int)$participant->id) {
+                $matched = true;
+                $confidence = $match['confidence'];
+                break;
+            }
+        }
+
+        if ($matched) {
+            $supplies = \App\Models\Supply::orderBy('name')->get()->map(function($supply) use ($participant) {
+                return [
+                    'id' => $supply->id,
+                    'name' => $supply->name,
+                    'received' => $participant->supplies()->where('supply_id', $supply->id)->exists(),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'verified' => true,
+                'confidence' => $confidence,
+                'supplies' => $supplies,
+                'notes' => $participant->registration_notes,
+                'registered_at' => $participant->registered_at ? $participant->registered_at->format('d M Y H:i') : null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'verified' => false,
+            'message' => 'Wajah tidak cocok dengan data peserta ini.',
+        ]);
+    }
+
+    /**
+     * Save participant's check-in items and notes.
+     * POST /admin/participants/{participant}/save-checkin
+     */
+    public function saveCheckIn(Request $request, Participant $participant)
+    {
+        $request->validate([
+            'supplies' => 'nullable|array',
+            'supplies.*' => 'integer|exists:supplies,id',
+            'notes' => 'nullable|string',
+            'confidence' => 'nullable|numeric',
+        ]);
+
+        $participant->registration_notes = $request->input('notes');
+        $participant->registered_at = now();
+        $participant->save();
+
+        $participant->supplies()->sync($request->input('supplies', []));
+
+        $activeSession = Session::getActive();
+        $attendanceCreated = false;
+        if ($activeSession) {
+            $existing = \App\Models\Attendance::where('participant_id', $participant->id)
+                ->where('session_id', $activeSession->id)
+                ->exists();
+            if (!$existing) {
+                $attendance = \App\Models\Attendance::create([
+                    'participant_id'  => $participant->id,
+                    'session_id'      => $activeSession->id,
+                    'check_in_time'   => now(),
+                    'method'          => 'face',
+                    'confidence_score'=> $request->input('confidence'),
+                    'notes'           => 'Registrasi barang check-in',
+                ]);
+
+                broadcast(new \App\Events\AttendanceRecorded($attendance));
+                \App\Jobs\SendCheckInConfirmation::dispatchAfterResponse($attendance);
+                $attendanceCreated = true;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registrasi check-in berhasil disimpan!' . ($attendanceCreated ? ' Kehadiran sesi aktif otomatis tercatat.' : ''),
+        ]);
+    }
 }

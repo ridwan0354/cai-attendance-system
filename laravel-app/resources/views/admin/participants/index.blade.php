@@ -23,6 +23,7 @@
         <a href="{{ route('admin.participants.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid var(--primary); color: var(--primary); font-size: .875rem;">👥 Peserta</a>
         <a href="{{ route('admin.groups.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">🗺️ Kelompok</a>
         <a href="{{ route('admin.sessions.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">📅 Sesi</a>
+        <a href="{{ route('admin.supplies.index') }}" style="padding: 0.5rem 1rem; font-weight: 600; text-decoration: none; border-bottom: 3px solid transparent; color: var(--neutral-500); font-size: .875rem;">🎁 Barang Registrasi</a>
     </div>
 
     <div class="page-header">
@@ -93,7 +94,12 @@
                                 <span class="badge badge-danger">❌ Belum</span>
                             @endif
                         </td>
-                        <td>
+                        <td style="display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap;">
+                            @if($p->face_registered)
+                                <button type="button" class="btn btn-sm" onclick="openCheckInModal({{ $p->id }}, '{{ addslashes($p->name) }}')" style="background: var(--success); color: white; border: none; padding: .45rem .75rem;">🎁 Registrasi</button>
+                            @else
+                                <button type="button" class="btn btn-outline btn-sm" disabled style="opacity: 0.5; cursor: not-allowed; padding: .45rem .75rem;" title="Daftarkan wajah terlebih dahulu melalui Edit">🎁 Registrasi</button>
+                            @endif
                             <a href="{{ route('admin.participants.edit', $p) }}" class="btn btn-outline btn-sm">Edit</a>
                             @if(!$p->face_registered)
                                 <a href="{{ route('admin.participants.edit', $p) }}#face-section" class="btn btn-sm" style="background:var(--warning-lt);color:var(--warning);border:1px solid var(--warning);">📸 Daftarkan Wajah</a>
@@ -114,4 +120,299 @@
         {{ $participants->links() }}
     </div>
 </div>
+
+<!-- Modal Registrasi Barang / Check-in -->
+<div id="checkInModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 1rem;">
+    <div class="modal-content card" style="background-color: #fff; margin: auto; padding: 1.5rem; border-radius: 8px; width: 100%; max-width: 500px; box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200); position: relative;">
+        
+        <!-- Header -->
+        <h3 style="margin-bottom: 1rem; font-weight: 800; font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; color: var(--neutral-900); border-bottom: 1px solid var(--neutral-150); padding-bottom: 0.5rem;">
+            <span id="checkInTitle">🎁 Registrasi Peserta</span>
+            <span onclick="closeCheckInModal()" style="cursor: pointer; font-size: 1.25rem; color: var(--neutral-500);">&times;</span>
+        </h3>
+        
+        <!-- Step 1: Scan Wajah (Camera Verification) -->
+        <div id="checkInStep1">
+            <p style="font-size: 0.84rem; color: var(--neutral-500); margin-bottom: 1rem;">
+                Harap verifikasi wajah peserta terlebih dahulu dengan mengarahkan wajah ke kamera.
+            </p>
+            
+            <div style="position: relative; width: 100%; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
+                <video id="checkInVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+                <canvas id="checkInCanvas" style="display: none;"></canvas>
+                
+                <!-- Scanning line effect -->
+                <div id="checkInScannerLine" style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: var(--primary); opacity: 0.8; box-shadow: 0 0 8px var(--primary); display: none;"></div>
+                
+                <!-- Loading overlays -->
+                <div id="checkInLoadingOverlay" style="display: none; position: absolute; z-index: 2; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 0.875rem;">
+                    <div style="border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 0.75rem;"></div>
+                    <span id="checkInLoadingText">Memverifikasi Wajah...</span>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeCheckInModal()">Batal</button>
+                <button type="button" class="btn btn-primary" id="checkInCaptureBtn" onclick="verifyFace()" disabled>📸 Verifikasi Wajah</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Checklist Barang & Notes -->
+        <div id="checkInStep2" style="display: none;">
+            <p style="font-size: 0.84rem; color: var(--neutral-500); margin-bottom: 1rem;">
+                Wajah terverifikasi (<span id="verifiedConfidence" style="font-weight: 700; color: var(--success);">0% match</span>)! Silakan centang barang yang sudah diambil.
+            </p>
+            
+            <form id="checkInForm" onsubmit="submitCheckIn(event)">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display:block;font-size:.84rem;font-weight:600;margin-bottom:.5rem; color: var(--neutral-700);">Barang yang Diambil</label>
+                    <div id="suppliesChecklistContainer" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--neutral-50); padding: 0.75rem; border-radius: 6px; border: 1.5px solid var(--neutral-200); max-height: 180px; overflow-y: auto;">
+                        <!-- Checkboxes dynamically generated -->
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display:block;font-size:.84rem;font-weight:600;margin-bottom:.35rem; color: var(--neutral-700);">Catatan Pendaftaran</label>
+                    <textarea id="checkInNotes" rows="3" placeholder="Tambahkan catatan jika perlu (misal: ukuran kaos, dll.)" style="width:100%;padding:.55rem .8rem;border:1.5px solid var(--neutral-200);border-radius:6px;font-size:.875rem;font-family:inherit;outline:none;resize:vertical;"></textarea>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--neutral-150); padding-top: 1rem;">
+                    <span id="registeredStatusText" style="font-size: 0.75rem; color: var(--neutral-500);"></span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-outline" onclick="closeCheckInModal()">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="checkInSaveBtn">💾 Simpan & Selesai</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes scan {
+    0% { top: 0%; }
+    50% { top: 100%; }
+    100% { top: 0%; }
+}
+.scanner-active-line {
+    animation: scan 2s linear infinite;
+}
+</style>
+
+@push('scripts')
+<script>
+let checkInStream = null;
+let currentParticipantId = null;
+let currentParticipantName = '';
+let verifiedConfidence = 0;
+
+async function openCheckInModal(id, name) {
+    currentParticipantId = id;
+    currentParticipantName = name;
+    verifiedConfidence = 0;
+
+    // Reset UI
+    document.getElementById('checkInTitle').textContent = `🎁 Registrasi: ${name}`;
+    document.getElementById('checkInStep1').style.display = 'block';
+    document.getElementById('checkInStep2').style.display = 'none';
+    document.getElementById('checkInLoadingOverlay').style.display = 'none';
+    document.getElementById('checkInScannerLine').style.display = 'none';
+    document.getElementById('checkInCaptureBtn').disabled = true;
+    document.getElementById('checkInNotes').value = '';
+
+    // Show modal
+    document.getElementById('checkInModal').style.display = 'flex';
+
+    // Start camera
+    await startCheckInCamera();
+}
+
+function closeCheckInModal() {
+    document.getElementById('checkInModal').style.display = 'none';
+    stopCheckInCamera();
+}
+
+async function startCheckInCamera() {
+    const video = document.getElementById('checkInVideo');
+    const captureBtn = document.getElementById('checkInCaptureBtn');
+    
+    try {
+        checkInStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, facingMode: 'user' }
+        });
+        video.srcObject = checkInStream;
+        captureBtn.disabled = false;
+    } catch (err) {
+        console.error("Camera access failed", err);
+        alert("Gagal mengakses kamera. Pastikan izin kamera telah diberikan.");
+    }
+}
+
+function stopCheckInCamera() {
+    if (checkInStream) {
+        checkInStream.getTracks().forEach(track => track.stop());
+        checkInStream = null;
+    }
+    const video = document.getElementById('checkInVideo');
+    if (video) video.srcObject = null;
+}
+
+async function verifyFace() {
+    const video = document.getElementById('checkInVideo');
+    const canvas = document.getElementById('checkInCanvas');
+    const overlay = document.getElementById('checkInLoadingOverlay');
+    const scannerLine = document.getElementById('checkInScannerLine');
+
+    // Show loading & scan animation
+    overlay.style.display = 'flex';
+    scannerLine.style.display = 'block';
+    scannerLine.classList.add('scanner-active-line');
+
+    // Capture frame
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+
+    try {
+        const response = await fetch(`/admin/participants/${currentParticipantId}/verify-checkin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ image: base64Image })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            if (data.verified) {
+                // Success! Transit to Step 2
+                verifiedConfidence = data.confidence;
+                document.getElementById('verifiedConfidence').textContent = `${data.confidence}% cocok`;
+                document.getElementById('checkInNotes').value = data.notes || '';
+                
+                // Show status
+                const statusText = document.getElementById('registeredStatusText');
+                if (data.registered_at) {
+                    statusText.innerHTML = `✅ Terdaftar: <span style="font-weight:600;">${data.registered_at}</span>`;
+                } else {
+                    statusText.textContent = 'Belum pernah registrasi';
+                }
+
+                // Render Supplies Checklist
+                const container = document.getElementById('suppliesChecklistContainer');
+                container.innerHTML = '';
+                
+                if (data.supplies && data.supplies.length > 0) {
+                    data.supplies.forEach(item => {
+                        const div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.gap = '0.5rem';
+                        div.style.fontSize = '0.875rem';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = item.id;
+                        checkbox.checked = item.received;
+                        checkbox.id = `supply_check_${item.id}`;
+                        checkbox.style.cursor = 'pointer';
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `supply_check_${item.id}`;
+                        label.textContent = item.name;
+                        label.style.cursor = 'pointer';
+                        label.style.fontWeight = '500';
+
+                        div.appendChild(checkbox);
+                        div.appendChild(label);
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:0.5rem;">Tidak ada jenis barang registrasi. Hubungi Admin.</div>';
+                }
+
+                // Show step 2
+                document.getElementById('checkInStep1').style.display = 'none';
+                document.getElementById('checkInStep2').style.display = 'block';
+                stopCheckInCamera();
+            } else {
+                alert(data.message || 'Wajah tidak cocok.');
+            }
+        } else {
+            alert(data.message || 'Gagal memverifikasi wajah.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan koneksi saat verifikasi wajah.');
+    } finally {
+        overlay.style.display = 'none';
+        scannerLine.style.display = 'none';
+        scannerLine.classList.remove('scanner-active-line');
+    }
+}
+
+async function submitCheckIn(event) {
+    event.preventDefault();
+    
+    const saveBtn = document.getElementById('checkInSaveBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Menyimpan...';
+
+    // Get checked supply IDs
+    const checkedSupplies = [];
+    const checkboxes = document.querySelectorAll('#suppliesChecklistContainer input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            checkedSupplies.push(parseInt(cb.value));
+        }
+    });
+
+    const payload = {
+        supplies: checkedSupplies,
+        notes: document.getElementById('checkInNotes').value,
+        confidence: verifiedConfidence
+    };
+
+    try {
+        const response = await fetch(`/admin/participants/${currentParticipantId}/save-checkin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            closeCheckInModal();
+            showToast(data.message, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            alert(data.message || 'Gagal menyimpan registrasi.');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Simpan & Selesai';
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan koneksi.');
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Simpan & Selesai';
+    }
+}
+</script>
+@endpush
 @endsection

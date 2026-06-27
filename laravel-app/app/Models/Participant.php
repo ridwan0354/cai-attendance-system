@@ -10,11 +10,12 @@ class Participant extends Model
 {
     protected $fillable = [
         'group_id', 'name', 'nik', 'gender', 'phone', 'photo_path',
-        'face_registered', 'rfid_code', 'qr_code'
+        'face_registered', 'rfid_code', 'qr_code', 'registration_notes', 'registered_at'
     ];
 
     protected $casts = [
         'face_registered' => 'boolean',
+        'registered_at' => 'datetime',
     ];
 
     /**
@@ -50,5 +51,10 @@ class Participant extends Model
     public function getAttendance(int $sessionId): ?Attendance
     {
         return $this->attendances()->where('session_id', $sessionId)->first();
+    }
+
+    public function supplies(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Supply::class);
     }
 }
