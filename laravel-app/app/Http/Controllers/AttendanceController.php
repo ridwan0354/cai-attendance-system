@@ -185,6 +185,9 @@ class AttendanceController extends Controller
 
             DB::commit();
 
+            // Dispatch WhatsApp Check-in Confirmation after response
+            \App\Jobs\SendCheckInConfirmation::dispatchAfterResponse($attendance);
+
             Log::info("Attendance recorded: {$participant->name} [{$method}] session {$sessionId}");
 
             return [

@@ -77,6 +77,66 @@ class FonnteWhatsAppService
     }
 
     /**
+     * Send check-in confirmation to a participant via WhatsApp.
+     */
+    public function sendCheckInConfirmation(\App\Models\Attendance $attendance): bool
+    {
+        if (empty($this->apiKey)) {
+            Log::error('Fonnte API key is not configured');
+            return false;
+        }
+
+        $participant = $attendance->participant;
+        if (!$participant || empty($participant->phone)) {
+            Log::warning("No phone number found for participant {$participant?->id}. Skipping WA confirmation.");
+            return false;
+        }
+
+        $session = $attendance->session;
+        $phone = $this->normalizePhone($participant->phone);
+        $methodLabel = match ($attendance->method) {
+            'face' => 'Pindai Wajah (Face Recognition) 📷',
+            'qr' => 'Pindai Kode QR 📱',
+            'rfid' => 'Pindai Kartu RFID 💳',
+            default => 'Manual ✏️',
+        };
+
+        $message = "✅ *Konfirmasi Kehadiran CAI LOMBOK 2026*\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "Halo *{$participant->name}*,\n";
+        $message .= "Kehadiran Anda berhasil tercatat di sistem kami:\n\n";
+        $message .= "📅 Sesi: *{$session->name}*\n";
+        $message .= "⏰ Waktu Absen: *{$attendance->check_in_time->format('H:i:s')}*\n";
+        $message .= "👤 Metode: *{$methodLabel}*\n\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "Terima kasih atas partisipasinya!\n\n";
+        $message .= "_Pesan otomatis - CAI Lombok 2026_";
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => $this->apiKey,
+            ])->post($this->apiUrl, [
+                'target'  => $phone,
+                'message' => $message,
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful() && ($responseData['status'] ?? false)) {
+                Log::info("WA Check-in confirmation sent to participant {$participant->name} ({$phone})");
+                return true;
+            }
+
+            Log::error("Failed to send WA Check-in confirmation to {$phone}", ['response' => $responseData]);
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('Fonnte send check-in confirmation failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    /**
      * Build the formatted WhatsApp attendance report message.
      */
     private function buildReportMessage(Group $group, Session $session): string

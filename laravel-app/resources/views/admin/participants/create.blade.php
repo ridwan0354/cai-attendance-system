@@ -61,8 +61,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label>NIK (opsional)</label>
-                    <input type="text" name="nik" maxlength="20" value="{{ old('nik') }}">
+                    <label>Jenis Kelamin *</label>
+                    <select name="gender" required>
+                        <option value="">— Pilih Jenis Kelamin —</option>
+                        <option value="Laki-laki" {{ old('gender') == 'Laki-laki' ? 'selected' : '' }}>Laki-laki</option>
+                        <option value="Perempuan" {{ old('gender') == 'Perempuan' ? 'selected' : '' }}>Perempuan</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>No. WA / WhatsApp Peserta *</label>
+                    <input type="text" name="phone" required placeholder="Contoh: 081234567890" value="{{ old('phone') }}">
                 </div>
 
                 <div class="form-group">

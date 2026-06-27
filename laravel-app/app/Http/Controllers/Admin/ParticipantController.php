@@ -31,7 +31,8 @@ class ParticipantController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'group_id'    => 'required|exists:groups,id',
-            'nik'         => 'nullable|string|max:20|unique:participants',
+            'gender'      => 'required|string|in:Laki-laki,Perempuan',
+            'phone'       => 'required|string|max:20',
             'photo'       => 'nullable|image|max:4096',
             'face_base64' => 'nullable|string', // from webcam capture
         ]);
@@ -44,7 +45,8 @@ class ParticipantController extends Controller
         $participant = Participant::create([
             'name'       => $validated['name'],
             'group_id'   => $validated['group_id'],
-            'nik'        => $validated['nik'] ?? null,
+            'gender'     => $validated['gender'],
+            'phone'      => $validated['phone'],
             'photo_path' => $photoPath,
         ]);
 
@@ -83,7 +85,8 @@ class ParticipantController extends Controller
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
             'group_id' => 'required|exists:groups,id',
-            'nik'      => 'nullable|string|max:20|unique:participants,nik,' . $participant->id,
+            'gender'   => 'required|string|in:Laki-laki,Perempuan',
+            'phone'    => 'required|string|max:20',
         ]);
 
         $participant->update($validated);

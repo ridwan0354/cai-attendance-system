@@ -70,8 +70,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label>NIK</label>
-                    <input type="text" name="nik" value="{{ $participant->nik }}">
+                    <label>Jenis Kelamin *</label>
+                    <select name="gender" required>
+                        <option value="">— Pilih Jenis Kelamin —</option>
+                        <option value="Laki-laki" {{ $participant->gender == 'Laki-laki' ? 'selected' : '' }}>Laki-laki</option>
+                        <option value="Perempuan" {{ $participant->gender == 'Perempuan' ? 'selected' : '' }}>Perempuan</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>No. WA / WhatsApp Peserta *</label>
+                    <input type="text" name="phone" required placeholder="Contoh: 081234567890" value="{{ $participant->phone }}">
                 </div>
 
                 <div style="display:flex;gap:.75rem;margin-top:1.5rem;">

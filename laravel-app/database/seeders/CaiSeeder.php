@@ -34,6 +34,8 @@ class CaiSeeder extends Seeder
                 Participant::create([
                     'group_id' => $group->id,
                     'name'     => $name,
+                    'gender'   => rand(0, 1) ? 'Laki-laki' : 'Perempuan',
+                    'phone'    => '08' . rand(11111111, 99999999),
                 ]);
             }
         }

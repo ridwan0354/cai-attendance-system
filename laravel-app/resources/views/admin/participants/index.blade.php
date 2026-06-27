@@ -45,7 +45,8 @@
                         <th>#</th>
                         <th>Nama</th>
                         <th>Grup</th>
-                        <th>NIK</th>
+                        <th>L/P</th>
+                        <th>No. WA</th>
                         <th>Wajah Terdaftar</th>
                         <th>Aksi</th>
                     </tr>
@@ -56,9 +57,10 @@
                         <td>{{ $p->id }}</td>
                         <td class="participant-name">{{ $p->name }}</td>
                         <td>
-                            <span class="badge badge-primary">{{ $p->group->name }}</span>
+                            <span class="badge badge-primary" style="background: {{ $p->group->color }}">{{ $p->group->name }}</span>
                         </td>
-                        <td>{{ $p->nik ?: '-' }}</td>
+                        <td>{{ $p->gender ?: '-' }}</td>
+                        <td>{{ $p->phone ?: '-' }}</td>
                         <td>
                             @if($p->face_registered)
                                 <span class="badge badge-success">✅ Terdaftar</span>

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Participant extends Model
 {
     protected $fillable = [
-        'group_id', 'name', 'nik', 'photo_path',
+        'group_id', 'name', 'nik', 'gender', 'phone', 'photo_path',
         'face_registered', 'rfid_code', 'qr_code'
     ];
 
