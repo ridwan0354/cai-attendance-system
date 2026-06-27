@@ -34,7 +34,7 @@ from deepface import DeepFace
 # ─── Config ───────────────────────────────────────────────────────────────────
 FACE_DB_PATH = "./face_db"
 MODEL_NAME   = "ArcFace"   # Best accuracy, cached after first load
-DETECTOR     = "ssd"       # SSD: robust and fast
+DETECTOR     = "opencv"    # OpenCV: completely offline, no downloads, very fast
 METRIC       = "cosine"
 THRESHOLD    = 0.60        # Cosine distance: 0=identical, 1=different. Balanced for ArcFace (default is 0.68)
 
@@ -358,8 +358,8 @@ async def startup():
         try:
             dummy = np.zeros((100, 100, 3), dtype=np.uint8)
             loop  = asyncio.get_event_loop()
-            await loop.run_in_executor(executor, _recognize_sync, dummy)
-            logger.info("✅ Model pre-warmed and ready!")
+            await loop.run_in_executor(executor, _recognize_sync, dummy, True)
+            logger.info("✅ Model and detector pre-warmed and ready!")
         except Exception as e:
             logger.info(f"Pre-warm done (expected no-match): {e}")
 
