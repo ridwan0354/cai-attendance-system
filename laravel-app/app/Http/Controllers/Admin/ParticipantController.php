@@ -171,7 +171,11 @@ class ParticipantController extends Controller
             'image' => 'required|string',
         ]);
 
-        $result = $this->faceService->recognize($request->input('image'));
+        $result = $this->faceService->recognize(
+            $request->input('image'),
+            null,
+            true // detect_face = true
+        );
 
         if (!$result['success'] || empty($result['matches'])) {
             return response()->json([

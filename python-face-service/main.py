@@ -71,6 +71,7 @@ app.add_middleware(
 class RecognizeRequest(BaseModel):
     image: str
     session_id: int | None = None
+    detect_face: bool | None = False
 
 class RegisterRequest(BaseModel):
     participant_id: int
@@ -95,7 +96,7 @@ def clear_pkl_cache():
         logger.info(f"Cleared cache: {pkl.name}")
 
 
-def _recognize_sync(img_array: np.ndarray) -> list[dict]:
+def _recognize_sync(img_array: np.ndarray, detect_face: bool = False) -> list[dict]:
     """
     Synchronous face recognition — runs in thread pool.
     Loads representations from pickle and manually computes cosine distance.
@@ -106,12 +107,17 @@ def _recognize_sync(img_array: np.ndarray) -> list[dict]:
     import pickle
     t0 = time.time()
 
-    # 1. Extract embedding of the query face (using skip since query is cropped)
+    # 1. Extract embedding of the query face (using skip since query is cropped, or configured detector)
     try:
+        backend = "skip"
+        if detect_face:
+            backend = DETECTOR
+            logger.info("Detecting face in query image first...")
+            
         query_res = DeepFace.represent(
             img_path=img_array,
             model_name=MODEL_NAME,
-            detector_backend="skip",
+            detector_backend=backend,
             enforce_detection=False
         )
         if not query_res or len(query_res) == 0:
@@ -281,7 +287,7 @@ async def recognize(req: RecognizeRequest):
     try:
         img   = b64_to_cv2(req.image)
         loop  = asyncio.get_event_loop()
-        hits  = await loop.run_in_executor(executor, _recognize_sync, img)
+        hits  = await loop.run_in_executor(executor, _recognize_sync, img, req.detect_face)
 
         return {
             "success":    True,

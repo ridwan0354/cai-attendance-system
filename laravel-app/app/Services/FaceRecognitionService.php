@@ -21,15 +21,17 @@ class FaceRecognitionService
      *
      * @param  string   $base64Image  Base64-encoded image frame
      * @param  int|null $sessionId    Current session ID
+     * @param  bool     $detectFace   Whether to run face detection in Python
      * @return array{success: bool, matches: array, faces_found: int}
      */
-    public function recognize(string $base64Image, ?int $sessionId = null): array
+    public function recognize(string $base64Image, ?int $sessionId = null, bool $detectFace = false): array
     {
         try {
             $response = Http::timeout($this->timeout)
                 ->post("{$this->baseUrl}/recognize", [
-                    'image'      => $base64Image,
-                    'session_id' => $sessionId,
+                    'image'       => $base64Image,
+                    'session_id'  => $sessionId,
+                    'detect_face' => $detectFace,
                 ]);
 
             if ($response->successful()) {
