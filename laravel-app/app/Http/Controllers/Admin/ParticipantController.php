@@ -174,53 +174,35 @@ class ParticipantController extends Controller
             'image' => 'required|string',
         ]);
 
-        $result = $this->faceService->recognize(
+        $result = $this->faceService->verify(
             $request->input('image'),
-            null,
+            $participant->id,
             true // detect_face = true
         );
 
-        if (!$result['success'] || empty($result['matches'])) {
+        if (!$result['success'] || !$result['verified']) {
             return response()->json([
                 'success' => true,
                 'verified' => false,
-                'message' => 'Wajah tidak terdeteksi atau tidak dikenali.',
+                'message' => 'Wajah tidak terdeteksi atau tidak cocok.',
             ]);
         }
 
-        $matched = false;
-        $confidence = 0;
-        foreach ($result['matches'] as $match) {
-            if ((int)$match['participant_id'] === (int)$participant->id) {
-                $matched = true;
-                $confidence = $match['confidence'];
-                break;
-            }
-        }
-
-        if ($matched) {
-            $supplies = \App\Models\Supply::orderBy('name')->get()->map(function($supply) use ($participant) {
-                return [
-                    'id' => $supply->id,
-                    'name' => $supply->name,
-                    'received' => $participant->supplies()->where('supply_id', $supply->id)->exists(),
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'verified' => true,
-                'confidence' => $confidence,
-                'supplies' => $supplies,
-                'notes' => $participant->registration_notes,
-                'registered_at' => $participant->registered_at ? $participant->registered_at->format('d M Y H:i') : null,
-            ]);
-        }
+        $supplies = \App\Models\Supply::orderBy('name')->get()->map(function($supply) use ($participant) {
+            return [
+                'id' => $supply->id,
+                'name' => $supply->name,
+                'received' => $participant->supplies()->where('supply_id', $supply->id)->exists(),
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'verified' => false,
-            'message' => 'Wajah tidak cocok dengan data peserta ini.',
+            'verified' => true,
+            'confidence' => $result['confidence'],
+            'supplies' => $supplies,
+            'notes' => $participant->registration_notes,
+            'registered_at' => $participant->registered_at ? $participant->registered_at->format('d M Y H:i') : null,
         ]);
     }
 

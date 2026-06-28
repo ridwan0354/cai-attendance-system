@@ -52,6 +52,41 @@ class FaceRecognitionService
     }
 
     /**
+     * Perform 1-to-1 verification against a specific participant's registered face.
+     *
+     * @param  string $base64Image   Query face image
+     * @param  int    $participantId Participant ID to match against
+     * @param  bool   $detectFace     Whether to run face detection in Python
+     * @return array{success: bool, verified: bool, confidence: int}
+     */
+    public function verify(string $base64Image, int $participantId, bool $detectFace = false): array
+    {
+        try {
+            $response = Http::timeout($this->timeout)
+                ->post("{$this->baseUrl}/verify", [
+                    'image'          => $base64Image,
+                    'participant_id' => $participantId,
+                    'detect_face'    => $detectFace,
+                ]);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::warning('Face verification service returned error', [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            return ['success' => false, 'verified' => false, 'confidence' => 0];
+
+        } catch (\Exception $e) {
+            Log::error('Face verification service unreachable', ['error' => $e->getMessage()]);
+            return ['success' => false, 'verified' => false, 'confidence' => 0, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Register a participant's face photo to the DeepFace database.
      *
      * @param  int    $participantId

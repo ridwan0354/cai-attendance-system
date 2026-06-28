@@ -128,7 +128,9 @@
                             @endif
                         </td>
                         <td style="display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap;">
-                            @if($p->face_registered)
+                            @if($p->registered_at)
+                                <button type="button" class="btn btn-outline btn-sm" disabled style="opacity: 0.5; cursor: not-allowed; padding: .45rem .75rem;" title="Sudah melakukan registrasi">🎁 Registrasi</button>
+                            @elseif($p->face_registered)
                                 <button type="button" class="btn btn-sm" onclick="openCheckInModal({{ $p->id }}, '{{ addslashes($p->name) }}')" style="background: var(--success); color: white; border: none; padding: .45rem .75rem;">🎁 Registrasi</button>
                             @else
                                 <button type="button" class="btn btn-outline btn-sm" disabled style="opacity: 0.5; cursor: not-allowed; padding: .45rem .75rem;" title="Daftarkan wajah terlebih dahulu melalui Edit">🎁 Registrasi</button>
@@ -378,10 +380,25 @@ async function verifyFace() {
     updateStatusArea('⚡ Memverifikasi wajah...', 'warning');
 
     const ctx = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+    
+    // Scale down image to max width/height 640px to reduce payload size to ~30KB
+    const maxDim = 640;
+    let w = video.videoWidth;
+    let h = video.videoHeight;
+    if (w > maxDim || h > maxDim) {
+        if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+        } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+        }
+    }
+    
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+    const base64Image = canvas.toDataURL('image/jpeg', 0.70).split(',')[1];
 
     try {
         const response = await fetch(`/admin/participants/${currentParticipantId}/verify-checkin`, {

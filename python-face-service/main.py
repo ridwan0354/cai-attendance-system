@@ -78,6 +78,11 @@ class RegisterRequest(BaseModel):
     name: str
     image: str
 
+class VerifyRequest(BaseModel):
+    image: str
+    participant_id: int
+    detect_face: bool | None = False
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 def b64_to_cv2(b64: str) -> np.ndarray:
     """Decode base64 image to OpenCV BGR array."""
@@ -256,6 +261,43 @@ def _register_sync(participant_id: int, name: str, img_array: np.ndarray) -> dic
     return {"success": True, "face_saved": str(save_path)}
 
 
+def _verify_sync(img_array: np.ndarray, participant_id: int, detect_face: bool = False) -> dict:
+    """1-to-1 face verification against the registered photo of a specific participant."""
+    target_path = Path(FACE_DB_PATH) / str(participant_id) / "photo.jpg"
+    if not target_path.exists():
+        return {"success": False, "error": f"Target face photo not found for ID {participant_id}"}
+        
+    try:
+        backend = "skip"
+        if detect_face:
+            backend = DETECTOR
+            logger.info("Detecting face in query image for 1-to-1 verify...")
+            
+        result = DeepFace.verify(
+            img1_path=img_array,
+            img2_path=str(target_path),
+            model_name=MODEL_NAME,
+            detector_backend=backend,
+            distance_metric=METRIC,
+            enforce_detection=False
+        )
+        
+        distance = result["distance"]
+        is_match = distance <= THRESHOLD
+        confidence = int(max(0.0, min(100.0, (1.0 - distance) * 100.0)))
+        
+        logger.info(f"1-to-1 verify for ID {participant_id}: match={is_match}, confidence={confidence}%, dist={distance:.4f}")
+        return {
+            "success": True,
+            "verified": is_match,
+            "confidence": confidence,
+            "distance": round(distance, 4)
+        }
+    except Exception as e:
+        logger.error(f"Error in 1-to-1 verify for ID {participant_id}: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
@@ -298,6 +340,28 @@ async def recognize(req: RecognizeRequest):
     except Exception as e:
         logger.error(f"Recognition failed: {e}")
         raise HTTPException(500, f"Recognition error: {e}")
+
+
+@app.post("/verify")
+async def verify(req: VerifyRequest):
+    """
+    Verify if a face matches a specific participant (1-to-1).
+    """
+    if not req.image:
+        raise HTTPException(400, "image is required")
+    if not req.participant_id:
+        raise HTTPException(400, "participant_id is required")
+        
+    try:
+        img = b64_to_cv2(req.image)
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(
+            executor, _verify_sync, img, req.participant_id, req.detect_face
+        )
+        return res
+    except Exception as e:
+        logger.error(f"1-to-1 verification endpoint failed: {e}")
+        raise HTTPException(500, f"Verification error: {e}")
 
 
 @app.post("/register")
