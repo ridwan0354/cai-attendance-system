@@ -1003,6 +1003,12 @@ function drawLoop() {
 
 // ── Add item to live feed ─────────────────────────────────────────────────────
 function addToFeed(match) {
+    if (!match.participant_id) return;
+    
+    // Prevent duplicate entries in the UI
+    const existingItem = document.getElementById(`feed-participant-${match.participant_id}`);
+    if (existingItem) return;
+
     // Remove placeholder
     const placeholder = liveFeed.querySelector('[data-placeholder]');
     if (placeholder) placeholder.remove();
@@ -1014,6 +1020,7 @@ function addToFeed(match) {
 
     const item = document.createElement('div');
     item.className = 'feed-item new';
+    item.id = `feed-participant-${match.participant_id}`;
     item.innerHTML = `
         <div class="feed-avatar" style="background: ${color}">${initials}</div>
         <div class="feed-info">
