@@ -61,4 +61,5 @@ Route::prefix('api')->name('api.')->group(function () {
 
     // Dashboard stats (polled by frontend as fallback)
     Route::get('dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
+    Route::get('dashboard/sessions/{session}/detail', [DashboardController::class, 'sessionDetail'])->name('dashboard.sessions.detail');
 });

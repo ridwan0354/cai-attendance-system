@@ -26,8 +26,13 @@ class DashboardController extends Controller
         $groups = Group::withCount('participants')->get();
         $faceServiceHealthy = $this->faceService->isHealthy();
 
+        $totalMale = Participant::where('gender', 'Laki-laki')->count();
+        $totalFemale = Participant::where('gender', 'Perempuan')->count();
+        $totalParticipants = Participant::count();
+
         return view('dashboard.index', compact(
-            'activeSession', 'sessions', 'groups', 'faceServiceHealthy'
+            'activeSession', 'sessions', 'groups', 'faceServiceHealthy',
+            'totalMale', 'totalFemale', 'totalParticipants'
         ));
     }
 
@@ -81,6 +86,9 @@ class DashboardController extends Controller
                 'method'      => $a->method,
             ]);
 
+        $totalMale = Participant::where('gender', 'Laki-laki')->count();
+        $totalFemale = Participant::where('gender', 'Perempuan')->count();
+
         return response()->json([
             'success'           => true,
             'session'           => [
@@ -93,11 +101,77 @@ class DashboardController extends Controller
             'total_participants' => $totalParticipants,
             'total_present'      => $totalPresent,
             'total_absent'       => $totalParticipants - $totalPresent,
+            'total_male'         => $totalMale,
+            'total_female'       => $totalFemale,
             'percentage'         => $totalParticipants > 0
                 ? round(($totalPresent / $totalParticipants) * 100)
                 : 0,
             'groups'             => $groups,
             'recent_attendances' => $recentAttendances,
+        ]);
+    }
+
+    /**
+     * Get detailed attendance lists for a specific session.
+     *
+     * GET /api/dashboard/sessions/{session}/detail
+     */
+    public function sessionDetail(Request $request, Session $session): JsonResponse
+    {
+        $groupId = $request->input('group_id');
+
+        // Base queries
+        $participantsQuery = Participant::with('group');
+        if ($groupId) {
+            $participantsQuery->where('group_id', $groupId);
+        }
+        $participants = $participantsQuery->orderBy('name')->get();
+
+        // Get all attendance for this session
+        $attendances = Attendance::where('session_id', $session->id)
+            ->get()
+            ->keyBy('participant_id');
+
+        $present = [];
+        $absent = [];
+
+        foreach ($participants as $p) {
+            $att = $attendances->get($p->id);
+            if ($att) {
+                $present[] = [
+                    'id'               => $p->id,
+                    'name'             => $p->name,
+                    'gender'           => $p->gender,
+                    'group_name'       => $p->group->name,
+                    'group_color'      => $p->group->color,
+                    'check_in_time'    => $att->check_in_time->format('H:i:s'),
+                    'method'           => $att->method,
+                ];
+            } else {
+                $absent[] = [
+                    'id'          => $p->id,
+                    'name'        => $p->name,
+                    'gender'      => $p->gender,
+                    'group_name'  => $p->group->name,
+                    'group_color' => $p->group->color,
+                    'phone'       => $p->phone,
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'session' => [
+                'id'   => $session->id,
+                'name' => $session->name,
+            ],
+            'present' => $present,
+            'absent'  => $absent,
+            'stats'   => [
+                'total'   => count($present) + count($absent),
+                'present' => count($present),
+                'absent'  => count($absent),
+            ],
         ]);
     }
 }

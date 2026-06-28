@@ -229,6 +229,9 @@
             <div class="stat-info">
                 <div class="stat-value" id="totalParticipants">-</div>
                 <div class="stat-label">Total Peserta</div>
+                <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 5px; font-weight: 600;">
+                    👨 <span id="totalMale">{{ $totalMale }}</span> L &nbsp;|&nbsp; 👩 <span id="totalFemale">{{ $totalFemale }}</span> P
+                </div>
             </div>
         </div>
         <div class="stat-card green">
@@ -308,6 +311,46 @@
                 </div>
             </div>
         </div>
+
+        <!-- Event Sessions Card -->
+        <div class="card" style="margin-top: 1rem;">
+            <div class="card-header">
+                <span class="card-title">📅 Jadwal & Monitor Sesi Acara</span>
+            </div>
+            <div class="card-body" style="padding: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem;">
+                    @foreach($sessions as $session)
+                        @php
+                            $isCurrentActive = $activeSession && $activeSession->id === $session->id;
+                        @endphp
+                        <div onclick="openSessionDetailModal({{ $session->id }}, '{{ addslashes($session->name) }}')" 
+                             style="cursor: pointer; background: white; border: 1.5px solid {{ $isCurrentActive ? 'var(--primary)' : 'var(--neutral-200)' }}; border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow); position: relative; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s;"
+                             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-lg)';"
+                             onmouseout="this.style.transform='none'; this.style.boxShadow='var(--shadow)';">
+                            
+                            @if($isCurrentActive)
+                                <span style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--success); color: white; font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 10px; animation: pulseLive 2s infinite;">AKTIF</span>
+                            @endif
+                            
+                            <div>
+                                <div style="font-weight: 800; font-size: 0.88rem; color: var(--neutral-900); padding-right: 2.5rem;">{{ $session->name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 4px;">
+                                    Hari ke-{{ $session->day_number }} &bull; {{ \Carbon\Carbon::parse($session->date)->format('d M') }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 2px;">
+                                    🕒 {{ $session->start_time }} – {{ $session->end_time }}
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 0.75rem; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--neutral-150); padding-top: 0.5rem; font-size: 0.75rem; color: var(--neutral-600); font-weight: 600;">
+                                <span>Detail Absensi</span>
+                                <span style="color: var(--primary);">➔</span>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ── Main Right ── -->
@@ -342,6 +385,65 @@
                 </a>
             </div>
         </div>
+</div>
+
+<!-- Modal Detail Sesi -->
+<div id="sessionDetailModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 1rem;">
+    <div class="modal-content card" style="background-color: #fff; margin: auto; padding: 1.5rem; border-radius: 8px; width: 100%; max-width: 650px; box-shadow: var(--shadow-lg); border: 1px solid var(--neutral-200); position: relative; display: flex; flex-direction: column; max-height: 85vh;">
+        
+        <!-- Header -->
+        <h3 style="margin-bottom: 1rem; font-weight: 800; font-size: 1.15rem; display: flex; justify-content: space-between; align-items: center; color: var(--neutral-900); border-bottom: 1px solid var(--neutral-150); padding-bottom: 0.5rem; flex-shrink: 0;">
+            <span id="detailModalTitle">📅 Detail Absensi Sesi</span>
+            <span onclick="closeSessionDetailModal()" style="cursor: pointer; font-size: 1.25rem; color: var(--neutral-500);">&times;</span>
+        </h3>
+        
+        <!-- Filter Form & Stats Header -->
+        <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; flex-shrink: 0; justify-content: space-between; background: var(--neutral-50); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--neutral-200);">
+            <!-- Stats -->
+            <div style="display: flex; gap: 0.75rem; font-size: 0.8rem; font-weight: 700; color: var(--neutral-700);">
+                <span>Total: <span id="detailTotalCount">0</span></span>
+                <span style="color: var(--success);">Hadir: <span id="detailPresentCount">0</span></span>
+                <span style="color: var(--danger);">Belum: <span id="detailAbsentCount">0</span></span>
+            </div>
+            
+            <!-- Group filter dropdown -->
+            <div style="width: 200px;">
+                <select id="detailGroupFilter" onchange="filterSessionDetail()" style="width: 100%; padding: 0.4rem 0.6rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.8rem; outline: none; background: white; font-family: inherit; cursor: pointer;">
+                    <option value="">— Semua Kelompok —</option>
+                    @foreach($groups as $g)
+                        <option value="{{ $g->id }}">{{ $g->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div style="display: flex; gap: 0.5rem; border-bottom: 1.5px solid var(--neutral-200); margin-bottom: 1rem; flex-shrink: 0;">
+            <button onclick="switchDetailTab('present')" id="tabBtnPresent" style="padding: 0.5rem 1rem; border: none; border-bottom: 3px solid var(--primary); background: none; font-weight: 700; font-size: 0.85rem; color: var(--primary); cursor: pointer; transition: all 0.2s;">
+                ✅ Hadir (<span id="tabCountPresent">0</span>)
+            </button>
+            <button onclick="switchDetailTab('absent')" id="tabBtnAbsent" style="padding: 0.5rem 1rem; border: none; border-bottom: 3px solid transparent; background: none; font-weight: 700; font-size: 0.85rem; color: var(--neutral-500); cursor: pointer; transition: all 0.2s;">
+                ❌ Belum Hadir (<span id="tabCountAbsent">0</span>)
+            </button>
+        </div>
+        
+        <!-- Content List Container -->
+        <div style="flex: 1; overflow-y: auto; min-height: 200px; padding: 2px;">
+            <!-- Present List -->
+            <div id="detailPresentList" style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <!-- Dynamically loaded -->
+            </div>
+            
+            <!-- Absent List -->
+            <div id="detailAbsentList" style="display: none; flex-direction: column; gap: 0.4rem;">
+                <!-- Dynamically loaded -->
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--neutral-150); padding-top: 1rem; margin-top: 1rem; flex-shrink: 0;">
+            <button type="button" class="btn btn-outline" onclick="closeSessionDetailModal()">Tutup</button>
+        </div>
     </div>
 </div>
 @endsection
@@ -365,6 +467,10 @@ async function fetchStats() {
         document.getElementById('totalPresent').textContent = data.total_present;
         document.getElementById('totalAbsent').textContent  = data.total_absent;
         document.getElementById('percentage').textContent   = data.percentage + '%';
+        
+        // Update gender stats
+        document.getElementById('totalMale').textContent = data.total_male;
+        document.getElementById('totalFemale').textContent = data.total_female;
 
         // Update group cards
         data.groups.forEach(g => {
@@ -467,5 +573,159 @@ setInterval(fetchStats, 15000); // Refresh every 15s as fallback
 setInterval(() => {
     if (SESSION_ID) updateSessionProgress({ start_time: '{{ $activeSession?->start_time }}', end_time: '{{ $activeSession?->end_time }}' });
 }, 10000);
+
+// ── Session Detail Modal Handlers ─────────────────────────────────────────────
+let currentDetailSessionId = null;
+let currentDetailTab = 'present';
+let rawSessionData = null;
+
+async function openSessionDetailModal(sessionId, sessionName) {
+    currentDetailSessionId = sessionId;
+    currentDetailTab = 'present';
+    document.getElementById('detailModalTitle').textContent = `📅 Detail Absensi Sesi: ${sessionName}`;
+    document.getElementById('detailGroupFilter').value = '';
+    
+    switchDetailTab('present');
+    document.getElementById('sessionDetailModal').style.display = 'flex';
+    
+    await fetchSessionDetail();
+}
+
+function closeSessionDetailModal() {
+    document.getElementById('sessionDetailModal').style.display = 'none';
+}
+
+async function fetchSessionDetail() {
+    if (!currentDetailSessionId) return;
+    
+    const groupId = document.getElementById('detailGroupFilter').value;
+    const url = `/api/dashboard/sessions/${currentDetailSessionId}/detail?group_id=${groupId}`;
+    
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.success) {
+            rawSessionData = data;
+            renderSessionDetailLists();
+        }
+    } catch(e) {
+        console.error("Failed to fetch session details:", e);
+    }
+}
+
+function filterSessionDetail() {
+    fetchSessionDetail();
+}
+
+function switchDetailTab(tab) {
+    currentDetailTab = tab;
+    
+    const btnPresent = document.getElementById('tabBtnPresent');
+    const btnAbsent = document.getElementById('tabBtnAbsent');
+    const listPresent = document.getElementById('detailPresentList');
+    const listAbsent = document.getElementById('detailAbsentList');
+    
+    if (tab === 'present') {
+        btnPresent.style.color = 'var(--primary)';
+        btnPresent.style.borderBottomColor = 'var(--primary)';
+        btnAbsent.style.color = 'var(--neutral-500)';
+        btnAbsent.style.borderBottomColor = 'transparent';
+        
+        listPresent.style.display = 'flex';
+        listAbsent.style.display = 'none';
+    } else {
+        btnAbsent.style.color = 'var(--primary)';
+        btnAbsent.style.borderBottomColor = 'var(--primary)';
+        btnPresent.style.color = 'var(--neutral-500)';
+        btnPresent.style.borderBottomColor = 'transparent';
+        
+        listPresent.style.display = 'none';
+        listAbsent.style.display = 'flex';
+    }
+}
+
+function renderSessionDetailLists() {
+    if (!rawSessionData) return;
+    
+    document.getElementById('detailTotalCount').textContent = rawSessionData.stats.total;
+    document.getElementById('detailPresentCount').textContent = rawSessionData.stats.present;
+    document.getElementById('detailAbsentCount').textContent = rawSessionData.stats.absent;
+    
+    document.getElementById('tabCountPresent').textContent = rawSessionData.stats.present;
+    document.getElementById('tabCountAbsent').textContent = rawSessionData.stats.absent;
+    
+    const presentContainer = document.getElementById('detailPresentList');
+    presentContainer.innerHTML = '';
+    
+    if (rawSessionData.present.length > 0) {
+        rawSessionData.present.forEach(p => {
+            const initials = p.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            const color = p.group_color || '#0052cc';
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.justifyContent = 'space-between';
+            item.style.padding = '0.55rem 0.75rem';
+            item.style.border = '1px solid var(--neutral-200)';
+            item.style.borderRadius = '6px';
+            item.style.background = 'white';
+            
+            item.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${color}; color: white; font-size: 0.75rem; font-weight: 700;">${initials}</div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.85rem; color: var(--neutral-900);">${p.name} <span style="font-size: 0.75rem; color: var(--neutral-500);">(${p.gender === 'Laki-laki' ? 'L' : 'P'})</span></div>
+                        <div style="font-size: 0.7rem; color: var(--neutral-500); margin-top: 1px;">Kelompok: ${p.group_name}</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--success);">🕒 ${p.check_in_time}</div>
+                    <div style="font-size: 0.65rem; color: var(--neutral-400); margin-top: 1px;">Metode: <span class="badge" style="background:var(--neutral-100);color:var(--neutral-600);border:1px solid var(--neutral-200);font-size:0.55rem;padding:0px 4px;">${p.method.toUpperCase()}</span></div>
+                </div>
+            `;
+            presentContainer.appendChild(item);
+        });
+    } else {
+        presentContainer.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:1.5rem;font-style:italic;">Tidak ada peserta hadir untuk filter ini.</div>';
+    }
+    
+    const absentContainer = document.getElementById('detailAbsentList');
+    absentContainer.innerHTML = '';
+    
+    if (rawSessionData.absent.length > 0) {
+        rawSessionData.absent.forEach(p => {
+            const initials = p.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            const color = p.group_color || '#0052cc';
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.justifyContent = 'space-between';
+            item.style.padding = '0.55rem 0.75rem';
+            item.style.border = '1px solid var(--neutral-200)';
+            item.style.borderRadius = '6px';
+            item.style.background = 'white';
+            
+            const phoneStr = p.phone ? `<a href="https://wa.me/${p.phone}" target="_blank" style="text-decoration:none;font-size:0.65rem;color:var(--primary);font-weight:600;display:inline-flex;align-items:center;gap:2px;margin-top:1px;">💬 Hubungi WA</a>` : '';
+            
+            item.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: ${color}; color: white; font-size: 0.75rem; font-weight: 700;">${initials}</div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.85rem; color: var(--neutral-900);">${p.name} <span style="font-size: 0.75rem; color: var(--neutral-500);">(${p.gender === 'Laki-laki' ? 'L' : 'P'})</span></div>
+                        <div style="font-size: 0.7rem; color: var(--neutral-500); margin-top: 1px;">Kelompok: ${p.group_name}</div>
+                    </div>
+                </div>
+                <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end;">
+                    <span style="font-size:0.75rem;font-weight:600;color:var(--danger);background:var(--danger-lt);padding:2px 6px;border-radius:4px;">Belum Hadir</span>
+                    ${phoneStr}
+                </div>
+            `;
+            absentContainer.appendChild(item);
+        });
+    } else {
+        absentContainer.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:1.5rem;font-style:italic;">Semua peserta telah hadir! 🎉</div>';
+    }
+}
 </script>
 @endpush
