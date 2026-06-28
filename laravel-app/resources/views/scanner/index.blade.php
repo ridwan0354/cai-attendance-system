@@ -1016,7 +1016,7 @@ function addToFeed(match) {
     const initials = match.participant_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     const color = match.group_color || '#0052cc';
     const method = match.method || 'face';
-    const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const time = match.time || match.check_in_time || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     const item = document.createElement('div');
     item.className = 'feed-item new';
@@ -1050,7 +1050,8 @@ if (typeof window.Echo !== 'undefined') {
                     participant_name: e.participant_name, 
                     group_name: e.group_name, 
                     group_color: e.group_color, 
-                    method: e.method 
+                    method: e.method,
+                    time: e.check_in_time
                 });
                 presentCount++;
                 document.getElementById('statPresent').textContent = presentCount;
@@ -1082,7 +1083,8 @@ async function loadInitialStats() {
                     participant_name: a.name,
                     group_name: a.group,
                     group_color: a.group_color,
-                    method: a.method
+                    method: a.method,
+                    time: a.time
                 });
             });
         }
