@@ -5,15 +5,16 @@
 <style>
     body { background: #0a0e1a; }
     .scanner-layout {
-        display: grid;
-        grid-template-columns: 1fr 360px;
+        position: relative;
         height: calc(100vh - 56px);
-        gap: 0;
+        overflow: hidden;
+        background: #000;
     }
 
-    /* ── Webcam Panel ─────────────────────────────────────────── */
     .webcam-panel {
-        position: relative;
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        bottom: 120px;
         background: #000;
         overflow: hidden;
         display: flex;
@@ -123,7 +124,7 @@
     /* Bottom status bar */
     .scanner-overlay-bottom {
         position: absolute;
-        bottom: 0; left: 0; right: 0;
+        bottom: 10px; left: 0; right: 0;
         padding: 1rem 1.25rem;
         background: linear-gradient(to top, rgba(0,0,0,.8) 0%, transparent 100%);
         display: flex;
@@ -145,66 +146,57 @@
     }
     .fps-counter { font-size: .75rem; color: rgba(255,255,255,.5); }
 
-    /* ── Side Panel ───────────────────────────────────────────── */
-    .side-panel {
-        background: #0d1220;
-        border-left: 1px solid rgba(255,255,255,.08);
+    /* ── Floating Session Card & Stats Overlay (Top Right) ────── */
+    .session-overlay {
+        position: absolute;
+        top: 4.5rem;
+        right: 1.25rem;
+        width: 320px;
+        z-index: 15;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        gap: 0.5rem;
     }
-    .side-header {
-        padding: 1rem;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-    }
-    .side-header h3 {
-        color: rgba(255,255,255,.9);
-        font-size: .9rem;
-        font-weight: 700;
-    }
-    .side-header p { color: rgba(255,255,255,.4); font-size: .75rem; margin-top: 2px; }
-
-    /* Session info card */
     .session-card {
-        margin: .75rem;
-        background: rgba(0,82,204,.2);
-        border: 1px solid rgba(0,82,204,.4);
-        border-radius: 8px;
-        padding: .75rem 1rem;
+        background: rgba(10, 14, 26, 0.75);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
     .session-card .session-name {
         color: #5c9eff;
-        font-weight: 700;
+        font-weight: 800;
         font-size: .85rem;
     }
     .session-card .session-time {
-        color: rgba(255,255,255,.5);
+        color: rgba(255,255,255,.6);
         font-size: .75rem;
         margin-top: 2px;
     }
     .session-card .session-status {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         margin-top: .4rem;
         font-size: .7rem;
-        font-weight: 600;
+        font-weight: 700;
         color: #00e676;
     }
-
-    /* Stats row */
     .stats-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: .5rem;
-        padding: 0 .75rem .75rem;
     }
     .stat-box {
-        background: rgba(255,255,255,.05);
-        border: 1px solid rgba(255,255,255,.08);
-        border-radius: 8px;
+        background: rgba(10, 14, 26, 0.75);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
         padding: .6rem .8rem;
         text-align: center;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     }
     .stat-box .stat-num {
         font-size: 1.4rem;
@@ -214,43 +206,83 @@
     }
     .stat-box .stat-num.green { color: #00e676; }
     .stat-box .stat-num.red   { color: #ff5252; }
-    .stat-box .stat-label { font-size: .65rem; color: rgba(255,255,255,.4); margin-top: 2px; text-transform: uppercase; letter-spacing: .05em; }
+    .stat-box .stat-label { font-size: .65rem; color: rgba(255,255,255,.5); margin-top: 2px; text-transform: uppercase; letter-spacing: .05em; }
 
-    /* Live feed */
-    .live-feed-header {
-        padding: .5rem .75rem;
-        font-size: .7rem;
+    /* ── Bottom Panel (Horizontal Check-in Feed) ──────────────── */
+    .bottom-panel {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 120px;
+        background: #0d1220;
+        border-top: 1px solid rgba(255,255,255,.08);
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1.25rem;
+        gap: 1.5rem;
+    }
+    .bottom-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        width: 250px;
+        flex-shrink: 0;
+    }
+    .bottom-title {
+        color: rgba(255,255,255,.9);
+        font-weight: 800;
+        font-size: .8rem;
         text-transform: uppercase;
-        letter-spacing: .08em;
-        color: rgba(255,255,255,.35);
-        font-weight: 600;
-        border-bottom: 1px solid rgba(255,255,255,.06);
+        letter-spacing: .05em;
     }
-    .live-feed {
+    .bottom-buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .bottom-buttons .ctrl-btn {
         flex: 1;
-        overflow-y: auto;
-        padding: .5rem;
+        padding: 0.45rem;
+        font-size: 0.72rem;
+        border-radius: 6px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-    .live-feed::-webkit-scrollbar { width: 4px; }
-    .live-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); }
+    .bottom-feed {
+        flex: 1;
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        padding: 0.25rem 0;
+        height: 100%;
+        align-items: center;
+    }
+    .bottom-feed::-webkit-scrollbar { height: 4px; }
+    .bottom-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
 
     .feed-item {
         display: flex;
         align-items: center;
         gap: .6rem;
-        padding: .55rem .6rem;
-        border-radius: 7px;
-        margin-bottom: .3rem;
-        animation: feedSlide .35s ease;
-        border: 1px solid transparent;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        min-width: 210px;
+        max-width: 240px;
+        flex-shrink: 0;
+        animation: feedSlideX .35s ease;
     }
     .feed-item.new {
-        background: rgba(0,230,118,.1);
+        background: rgba(0,230,118,.08);
         border-color: rgba(0,230,118,.2);
     }
-    @keyframes feedSlide {
-        from { transform: translateY(-10px); opacity: 0; }
-        to   { transform: translateY(0);     opacity: 1; }
+    @keyframes feedSlideX {
+        from { transform: translateX(20px); opacity: 0; }
+        to   { transform: translateX(0);     opacity: 1; }
     }
     .feed-avatar {
         width: 32px; height: 32px;
@@ -264,20 +296,19 @@
         flex-shrink: 0;
     }
     .feed-info { flex: 1; min-width: 0; }
-    .feed-name { font-size: .82rem; font-weight: 600; color: rgba(255,255,255,.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .feed-group { font-size: .7rem; color: rgba(255,255,255,.4); }
-    .feed-time { font-size: .7rem; color: rgba(255,255,255,.35); white-space: nowrap; }
+    .feed-name { font-size: .8rem; font-weight: 700; color: rgba(255,255,255,.95); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feed-group { font-size: .68rem; color: rgba(255,255,255,.5); display: flex; align-items: center; gap: 4px; }
+    .feed-time { font-size: .68rem; color: rgba(255,255,255,.4); white-space: nowrap; }
 
     .feed-method-badge {
-        font-size: .6rem;
-        padding: 1px 5px;
+        font-size: .55rem;
+        padding: 1px 4px;
         border-radius: 3px;
-        font-weight: 600;
-        background: rgba(255,255,255,.1);
-        color: rgba(255,255,255,.5);
+        font-weight: 700;
     }
-    .feed-method-badge.face    { background: rgba(0,122,255,.2); color: #5c9eff; }
-    .feed-method-badge.manual  { background: rgba(255,165,0,.2); color: #ffa500; }
+    .feed-method-badge.face    { background: rgba(0,122,255,.15); color: #5c9eff; }
+    .feed-method-badge.qr      { background: rgba(0,230,118,.15); color: #00e676; }
+    .feed-method-badge.manual  { background: rgba(255,165,0,.15); color: #ffa500; }
 
     /* Scanner controls */
     .scanner-controls {
@@ -395,6 +426,36 @@
             </div>
         </div>
 
+        <!-- Floating Session Card & Stats Overlay (Top Right) -->
+        <div class="session-overlay">
+            <!-- Session info -->
+            <div class="session-card" id="sessionCard">
+                @if($activeSession)
+                    <div class="session-name">{{ $activeSession->name }}</div>
+                    <div class="session-time">{{ $activeSession->start_time }} – {{ $activeSession->end_time }}</div>
+                    <div class="session-status">
+                        <div style="width:6px;height:6px;border-radius:50%;background:#00e676;"></div>
+                        Sesi Aktif • Hari ke-{{ $activeSession->day_number }}
+                    </div>
+                @else
+                    <div class="session-name" style="color: #ff5252;">Belum ada sesi aktif</div>
+                    <div class="session-time">Aktifkan sesi di panel Admin</div>
+                @endif
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-num green" id="statPresent">0</div>
+                    <div class="stat-label">Hadir</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num red" id="statAbsent">-</div>
+                    <div class="stat-label">Belum</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Scan visual effects -->
         <div class="scan-grid"></div>
         <div class="scan-line" id="scanLine"></div>
@@ -412,63 +473,32 @@
             <div class="confidence" id="popupConfidence">Confidence: 95.2%</div>
         </div>
 
-        <!-- Bottom bar -->
+        <!-- Bottom bar (floats above bottom panel) -->
         <div class="scanner-overlay-bottom">
             <div class="face-count-badge" id="faceCountBadge">👤 0 wajah terdeteksi</div>
             <div class="fps-counter" id="fpsCounter">0 fps</div>
         </div>
     </div>
 
-    <!-- Side Panel -->
-    <div class="side-panel">
-        <div class="side-header">
-            <h3>Live Attendance Feed</h3>
-            <p>Pemindaian wajah realtime</p>
-        </div>
-
-        <!-- Session info -->
-        <div class="session-card" id="sessionCard">
-            @if($activeSession)
-                <div class="session-name">{{ $activeSession->name }}</div>
-                <div class="session-time">{{ $activeSession->start_time }} – {{ $activeSession->end_time }}</div>
-                <div class="session-status">
-                    <div style="width:6px;height:6px;border-radius:50%;background:#00e676;"></div>
-                    Sesi Aktif • Hari ke-{{ $activeSession->day_number }}
-                </div>
-            @else
-                <div class="session-name" style="color: #ff5252;">Belum ada sesi aktif</div>
-                <div class="session-time">Aktifkan sesi di panel Admin</div>
-            @endif
-        </div>
-
-        <!-- Stats -->
-        <div class="stats-row">
-            <div class="stat-box">
-                <div class="stat-num green" id="statPresent">0</div>
-                <div class="stat-label">Hadir</div>
+    <!-- Bottom Panel (Horizontal Check-in Feed) -->
+    <div class="bottom-panel">
+        <div class="bottom-controls">
+            <div class="bottom-title">
+                🔴 Live Check-in
             </div>
-            <div class="stat-box">
-                <div class="stat-num red" id="statAbsent">-</div>
-                <div class="stat-label">Belum</div>
+            <div class="bottom-buttons">
+                <button class="ctrl-btn primary" id="toggleScanBtn" onclick="toggleScanning()">
+                    ⏸ Pause Scan
+                </button>
+                <button class="ctrl-btn danger" onclick="openManualEntry()">
+                    ✏️ Manual
+                </button>
             </div>
         </div>
-
-        <!-- Live feed list -->
-        <div class="live-feed-header">Live Check-in</div>
-        <div class="live-feed" id="liveFeed">
-            <div style="text-align:center; padding: 2rem; color: rgba(255,255,255,.2); font-size: .8rem;">
+        <div class="bottom-feed" id="liveFeed">
+            <div style="color: rgba(255,255,255,.2); font-size: .8rem;" data-placeholder>
                 Menunggu data absensi...
             </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="scanner-controls">
-            <button class="ctrl-btn primary" id="toggleScanBtn" onclick="toggleScanning()">
-                ⏸ Pause Scan
-            </button>
-            <button class="ctrl-btn danger" onclick="openManualEntry()">
-                ✏️ Manual
-            </button>
         </div>
     </div>
 </div>
