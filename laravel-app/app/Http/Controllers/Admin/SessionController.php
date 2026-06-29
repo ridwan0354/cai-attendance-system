@@ -60,6 +60,25 @@ class SessionController extends Controller
 
     public function activate(Session $session)
     {
+        $today = now()->format('Y-m-d');
+        $sessionDate = $session->date->format('Y-m-d');
+
+        if ($sessionDate !== $today) {
+            return back()->with('error', "Gagal mengaktifkan sesi. Tanggal sesi ({$session->date->format('d M Y')}) tidak sesuai dengan tanggal hari ini.");
+        }
+
+        $startTime = \Carbon\Carbon::parse($sessionDate . ' ' . $session->start_time);
+        $endTime = \Carbon\Carbon::parse($sessionDate . ' ' . $session->end_time);
+        $earliestStart = $startTime->copy()->subHour();
+
+        if (now()->lt($earliestStart)) {
+            return back()->with('error', "Gagal mengaktifkan sesi. Sesi ini baru dapat diaktifkan paling cepat 1 jam sebelum jadwal dimulai (mulai pukul {$earliestStart->format('H:i')}).");
+        }
+
+        if (now()->gt($endTime)) {
+            return back()->with('error', "Gagal mengaktifkan sesi. Sesi ini sudah berakhir pada pukul {$endTime->format('H:i')}.");
+        }
+
         // Deactivate all first
         Session::where('is_active', true)->update(['is_active' => false]);
         $session->update(['is_active' => true]);

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\Admin\GroupController;
 use App\Http\Controllers\Admin\SupplyController;
+use App\Http\Controllers\Admin\SettingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +50,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Supplies
     Route::resource('supplies', SupplyController::class)->only(['index', 'store', 'destroy']);
+
+    // Settings
+    Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+    Route::post('settings/unlock', [SettingController::class, 'unlock'])->name('settings.unlock');
+    Route::post('settings', [SettingController::class, 'store'])->name('settings.store');
+    Route::post('settings/lock', [SettingController::class, 'lock'])->name('settings.lock');
 });
 
 // ── API Routes (JSON) ─────────────────────────────────────────────────────────
