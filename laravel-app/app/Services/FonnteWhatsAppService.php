@@ -200,6 +200,43 @@ class FonnteWhatsAppService
     }
 
     /**
+     * Send a generic message to any number.
+     * Returns ['success' => bool, 'message' => string]
+     */
+    public function sendGenericMessage(string $phone, string $message, ?string $overrideKey = null): array
+    {
+        $key = $overrideKey ?? $this->apiKey;
+        if (empty($key)) {
+            return ['success' => false, 'message' => 'API Key Fonnte belum dikonfigurasi.'];
+        }
+
+        $target = $this->normalizePhone($phone);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => $key,
+            ])->post($this->apiUrl, [
+                'target'  => $target,
+                'message' => $message,
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful() && ($responseData['status'] ?? false)) {
+                return ['success' => true, 'message' => 'Pesan berhasil terkirim.'];
+            }
+
+            return [
+                'success' => false,
+                'message' => $responseData['reason'] ?? json_encode($responseData)
+            ];
+
+        } catch (\Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Normalize phone number to Indonesian WhatsApp format.
      * Example: 081234567890 → 6281234567890
      */

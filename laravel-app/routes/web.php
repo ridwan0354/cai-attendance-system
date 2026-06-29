@@ -56,6 +56,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('settings/unlock', [SettingController::class, 'unlock'])->name('settings.unlock');
     Route::post('settings', [SettingController::class, 'store'])->name('settings.store');
     Route::post('settings/lock', [SettingController::class, 'lock'])->name('settings.lock');
+    Route::post('settings/test-wa', [SettingController::class, 'testWA'])->name('settings.test-wa');
 });
 
 // ── API Routes (JSON) ─────────────────────────────────────────────────────────

@@ -64,4 +64,35 @@ class SettingController extends Controller
         session()->forget('settings_unlocked');
         return redirect()->route('admin.settings.index')->with('success', 'Pengaturan telah dikunci kembali.');
     }
+
+    /**
+     * Send a test WhatsApp message.
+     */
+    public function testWA(Request $request, \App\Services\FonnteWhatsAppService $waService)
+    {
+        if (!session('settings_unlocked')) {
+            return redirect()->route('admin.settings.index');
+        }
+
+        $validated = $request->validate([
+            'test_phone' => 'required|string',
+        ]);
+
+        $apiKey = Setting::getVal('fonnte_api_key', '');
+        if (empty($apiKey)) {
+            return back()->with('error', 'Token Fonnte belum disimpan. Silakan simpan token terlebih dahulu.');
+        }
+
+        $message = "✅ *Tes Koneksi CAI LOMBOK 2026*\n\n";
+        $message .= "Halo! Ini adalah pesan tes dari Aplikasi Absensi Face Recognition CAI Lombok 2026.\n\n";
+        $message .= "Jika Anda menerima pesan ini, artinya token API Fonnte Anda sudah berhasil terhubung dengan benar! 🚀";
+
+        $res = $waService->sendGenericMessage($validated['test_phone'], $message);
+
+        if ($res['success']) {
+            return back()->with('success', "Berhasil mengirim pesan tes ke nomor {$validated['test_phone']}!");
+        }
+
+        return back()->with('error', "Gagal mengirim pesan tes. Error: {$res['message']}");
+    }
 }
