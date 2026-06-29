@@ -152,33 +152,47 @@ class FonnteWhatsAppService
         $endTime = \Carbon\Carbon::parse($session->date->format('Y-m-d') . ' ' . $session->end_time);
         $minutesLeft = max(0, now()->diffInMinutes($endTime, false));
 
+        // Gender stats
+        $totalMale = $participants->filter(fn($p) => $p->gender === 'Laki-laki')->count();
+        $totalFemale = $participants->filter(fn($p) => $p->gender === 'Perempuan')->count();
+        $presentMale = $present->filter(fn($p) => $p->gender === 'Laki-laki')->count();
+        $presentFemale = $present->filter(fn($p) => $p->gender === 'Perempuan')->count();
+        $absentMale = $absent->filter(fn($p) => $p->gender === 'Laki-laki')->count();
+        $absentFemale = $absent->filter(fn($p) => $p->gender === 'Perempuan')->count();
+
         $message = "📋 *Laporan Kehadiran CAI LOMBOK 2026*\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "📅 Sesi: *{$session->name}*\n";
         $message .= "👥 Grup: *{$group->name}*\n";
         $message .= "🗓️ Hari ke-{$session->day_number} | " . $session->date->format('d M Y') . "\n\n";
 
-        // Present list
-        $message .= "✅ *Hadir ({$stats['present']}/{$stats['total']}):*\n";
-        $no = 1;
-        foreach ($present as $p) {
-            $time = $p->attendances->first()->check_in_time->format('H:i');
-            $message .= "{$no}. {$p->name} - ⏰ {$time}\n";
-            $no++;
-        }
+        $message .= "📊 *Rincian Utusan:*\n";
+        $message .= "- Total Laki-laki: *{$totalMale}*\n";
+        $message .= "- Total Perempuan: *{$totalFemale}*\n";
+        $message .= "- Total Peserta: *{$stats['total']}*\n\n";
 
-        // Absent list
+        $message .= "✅ *Sudah Hadir ({$stats['present']}):*\n";
+        $message .= "- Laki-laki: *{$presentMale}*\n";
+        $message .= "- Perempuan: *{$presentFemale}*\n\n";
+
+        $message .= "❌ *Belum Hadir ({$stats['absent']}):*\n";
+        $message .= "- Laki-laki: *{$absentMale}*\n";
+        $message .= "- Perempuan: *{$absentFemale}*\n\n";
+
+        // Absent list detailed
         if ($absent->isNotEmpty()) {
-            $message .= "\n❌ *Belum Hadir ({$stats['absent']}):*\n";
+            $message .= "📝 *Daftar Peserta Belum Hadir:*\n";
             $no = 1;
             foreach ($absent as $p) {
-                $message .= "{$no}. {$p->name}\n";
+                $gLabel = $p->gender === 'Laki-laki' ? 'L' : 'P';
+                $message .= "{$no}. {$p->name} ({$gLabel})\n";
                 $no++;
             }
+            $message .= "\n";
         }
 
-        $message .= "\n━━━━━━━━━━━━━━━━━━━━\n";
-        $message .= "📊 Kehadiran: *{$stats['percentage']}%*\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📊 Persentase Kehadiran: *{$stats['percentage']}%*\n";
         $message .= "⏳ Sisa waktu sesi: *{$minutesLeft} menit*\n";
         $message .= "\n_Pesan otomatis - CAI Lombok 2026_";
 

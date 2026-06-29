@@ -33,7 +33,20 @@ class Session extends Model
      */
     public static function getActive(): ?self
     {
-        return self::where('is_active', true)->first();
+        // 1. Prioritize manually activated session
+        $manual = self::where('is_active', true)->first();
+        if ($manual) {
+            return $manual;
+        }
+
+        // 2. Otherwise, auto-activate based on current date and time
+        $today = now()->format('Y-m-d');
+        $nowTime = now()->format('H:i:s');
+
+        return self::where('date', $today)
+            ->where('start_time', '<=', $nowTime)
+            ->where('end_time', '>=', $nowTime)
+            ->first();
     }
 
     /**

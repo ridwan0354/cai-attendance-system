@@ -29,7 +29,12 @@ Schedule::call(function () {
     if ($session->endsWithinMinutes(60)) {
         $groups = Group::all();
         foreach ($groups as $group) {
-            SendWhatsAppReport::dispatch($group, $session);
+            $exists = \App\Models\NotificationLog::where('group_id', $group->id)
+                ->where('session_id', $session->id)
+                ->exists();
+            if (!$exists) {
+                SendWhatsAppReport::dispatch($group, $session);
+            }
         }
     }
 })->everyMinute()->name('cai-wa-t-minus-60')->withoutOverlapping();
