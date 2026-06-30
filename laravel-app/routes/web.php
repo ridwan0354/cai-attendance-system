@@ -44,6 +44,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('sessions.activate');
     Route::post('sessions/{session}/deactivate', [SessionController::class, 'deactivate'])
         ->name('sessions.deactivate');
+    Route::post('sessions/{session}/send-report', [SessionController::class, 'sendReport'])
+        ->name('sessions.send-report');
 
     // Groups
     Route::resource('groups', GroupController::class);

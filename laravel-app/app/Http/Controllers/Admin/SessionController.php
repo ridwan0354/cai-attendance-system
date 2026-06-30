@@ -11,7 +11,8 @@ class SessionController extends Controller
     public function index()
     {
         $sessions = Session::orderBy('day_number')->orderBy('start_time')->get();
-        return view('admin.sessions.index', compact('sessions'));
+        $groups = \App\Models\Group::orderBy('name')->get();
+        return view('admin.sessions.index', compact('sessions', 'groups'));
     }
 
     public function create()
@@ -89,5 +90,21 @@ class SessionController extends Controller
     {
         $session->update(['is_active' => false]);
         return back()->with('success', "Sesi '{$session->name}' dinonaktifkan.");
+    }
+
+    public function sendReport(Request $request, Session $session)
+    {
+        $validated = $request->validate([
+            'group_ids' => 'required|array',
+            'group_ids.*' => 'exists:groups,id',
+        ]);
+
+        $groups = \App\Models\Group::whereIn('id', $validated['group_ids'])->get();
+
+        foreach ($groups as $group) {
+            \App\Jobs\SendWhatsAppReport::dispatch($group, $session, true);
+        }
+
+        return back()->with('success', "Laporan absensi sesi '{$session->name}' berhasil dijadwalkan untuk dikirim ke " . $groups->count() . " kelompok pembina.");
     }
 }

@@ -22,20 +22,23 @@ class SendWhatsAppReport implements ShouldQueue
 
     public function __construct(
         public readonly Group   $group,
-        public readonly Session $session
+        public readonly Session $session,
+        public readonly bool    $force = false
     ) {}
 
     public function handle(FonnteWhatsAppService $waService): void
     {
-        // Prevent duplicate sends for the same group+session
-        $alreadySent = NotificationLog::where('group_id', $this->group->id)
-            ->where('session_id', $this->session->id)
-            ->where('status', 'sent')
-            ->exists();
+        if (!$this->force) {
+            // Prevent duplicate sends for the same group+session
+            $alreadySent = NotificationLog::where('group_id', $this->group->id)
+                ->where('session_id', $this->session->id)
+                ->where('status', 'sent')
+                ->exists();
 
-        if ($alreadySent) {
-            Log::info("WA report already sent for group {$this->group->id}, session {$this->session->id}. Skipping.");
-            return;
+            if ($alreadySent) {
+                Log::info("WA report already sent for group {$this->group->id}, session {$this->session->id}. Skipping.");
+                return;
+            }
         }
 
         $waService->sendAttendanceReport($this->group, $this->session);
