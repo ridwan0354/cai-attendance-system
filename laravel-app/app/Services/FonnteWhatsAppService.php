@@ -15,7 +15,7 @@ class FonnteWhatsAppService
 
     public function __construct()
     {
-        $this->apiKey = config('services.fonnte.api_key', '');
+        $this->apiKey = (string) config('services.fonnte.api_key', '');
     }
 
     /**
