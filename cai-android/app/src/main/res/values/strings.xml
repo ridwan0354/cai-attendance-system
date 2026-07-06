@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">CAI Attendance</string>
+    <string name="login_title">CAI Attendance</string>
+    <string name="login_subtitle">Sistem Absensi CAI Lombok 2026</string>
+    <string name="server_url_label">URL Server</string>
+    <string name="server_url_hint">Contoh: http://192.168.1.100:8000</string>
+    <string name="api_key_label">API Key</string>
+    <string name="api_key_hint">Masukkan API Key dari server</string>
+    <string name="btn_login">Masuk &amp; Mulai Sync</string>
+    <string name="btn_scan">Mulai Scan Wajah</string>
+    <string name="btn_sync">Sinkronisasi Data</string>
+    <string name="btn_sync_now">Sync Sekarang</string>
+    <string name="sync_title">Sinkronisasi Peserta</string>
+    <string name="scan_title">Scanner Wajah</string>
+    <string name="home_title">Beranda</string>
+    <string name="scanner_hint">Arahkan kamera ke wajah peserta</string>
+    <string name="recognized">Terdeteksi!</string>
+    <string name="not_recognized">Wajah tidak dikenal</string>
+    <string name="already_present">Sudah absen sebelumnya</string>
+    <string name="attendance_recorded">Absensi berhasil dicatat</string>
+    <string name="sync_progress">Menyinkronkan data peserta…</string>
+    <string name="sync_done">Sinkronisasi selesai</string>
+    <string name="no_active_session">Tidak ada sesi aktif saat ini</string>
+    <string name="camera_permission_required">Izin kamera diperlukan untuk scan wajah</string>
+    <string name="grant_permission">Beri Izin</string>
+    <string name="participants_synced">%1$d peserta tersinkronisasi</string>
+</resources>
