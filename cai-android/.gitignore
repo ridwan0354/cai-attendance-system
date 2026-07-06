@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.keystore
+!debug.keystore
+
+# Android build outputs - jangan push ke GitHub
+app/build/
+app/release/
+app/debug/
