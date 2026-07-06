@@ -67,7 +67,6 @@ class MobileApiController extends Controller
         }
 
         $query = Participant::with('group')
-            ->where('face_registered', true)
             ->select([
                 'id', 'name', 'nik', 'group_id',
                 'photo_path', 'face_registered',
@@ -95,15 +94,16 @@ class MobileApiController extends Controller
             $hasPhoto  = file_exists($photoPath);
 
             return [
-                'id'          => $p->id,
-                'name'        => $p->name,
-                'nik'         => $p->nik,
-                'group_id'    => $p->group_id,
-                'group_name'  => $p->group?->name,
-                'group_color' => $p->group?->color,
-                'has_photo'   => $hasPhoto,
-                'photo_hash'  => $hasPhoto ? md5_file($photoPath) : null,
-                'updated_at'  => $p->updated_at?->toIso8601String(),
+                'id'              => $p->id,
+                'name'            => $p->name,
+                'nik'             => $p->nik,
+                'group_id'        => $p->group_id,
+                'group_name'      => $p->group?->name,
+                'group_color'     => $p->group?->color,
+                'face_registered' => $p->face_registered,
+                'has_photo'       => $hasPhoto,
+                'photo_hash'      => $hasPhoto ? md5_file($photoPath) : null,
+                'updated_at'      => $p->updated_at?->toIso8601String(),
             ];
         });
 
@@ -319,6 +319,56 @@ class MobileApiController extends Controller
             'server_time'        => now()->toIso8601String(),
             'server_version'     => '2026.1',
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /api/mobile/participants/{id}/register-face
+    // Daftarkan wajah peserta dari Android ke Laravel + Python Face Service
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Menerima base64 foto wajah peserta dari Android app,
+     * menyimpannya di server, mendaftarkan ke Python face service,
+     * dan mengubah status face_registered menjadi true.
+     */
+    public function registerFace(Request $request, int $id): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $request->validate([
+            'image' => 'required|string', // base64 string
+        ]);
+
+        $participant = Participant::find($id);
+        if (!$participant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Peserta tidak ditemukan.',
+            ], 404);
+        }
+
+        // Panggil FaceRecognitionService bawaan Laravel untuk daftarkan ke Python service
+        $faceService = app(\App\Services\FaceRecognitionService::class);
+        $result = $faceService->registerFace($participant->id, $participant->name, $request->input('image'));
+
+        if ($result['success'] ?? false) {
+            $participant->update([
+                'face_registered' => true,
+                'updated_at' => now(), // Memaksa update timestamp agar kedetect saat sync di HP lain
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Wajah {$participant->name} berhasil didaftarkan!",
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => $result['error'] ?? 'Gagal mendaftarkan wajah di server.',
+        ], 422);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

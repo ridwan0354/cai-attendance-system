@@ -81,8 +81,11 @@ Route::prefix('api/mobile')->name('api.mobile.')->group(function () {
     // Sync info (statistik, last updated)
     Route::get('sync/info', [MobileApiController::class, 'syncInfo'])->name('sync.info');
 
-    // Daftar peserta yang punya foto wajah (incremental sync via ?since=)
+    // Daftar peserta (incremental sync via ?since=)
     Route::get('participants', [MobileApiController::class, 'participants'])->name('participants');
+
+    // Register wajah peserta baru/update
+    Route::post('participants/{id}/register-face', [MobileApiController::class, 'registerFace'])->name('participants.register-face');
 
     // Download foto peserta (binary JPEG)
     Route::get('participants/{id}/photo', [MobileApiController::class, 'participantPhoto'])->name('participants.photo');
