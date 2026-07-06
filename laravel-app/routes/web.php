@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\Admin\GroupController;
 use App\Http\Controllers\Admin\SupplyController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Api\MobileApiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -73,3 +74,26 @@ Route::prefix('api')->name('api.')->group(function () {
     Route::get('dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('dashboard/sessions/{session}/detail', [DashboardController::class, 'sessionDetail'])->name('dashboard.sessions.detail');
 });
+
+// ── Mobile API Routes (Android App) ──────────────────────────────────────────
+// Auth: X-Api-Key header (set MOBILE_API_KEY di .env)
+Route::prefix('api/mobile')->name('api.mobile.')->group(function () {
+    // Sync info (statistik, last updated)
+    Route::get('sync/info', [MobileApiController::class, 'syncInfo'])->name('sync.info');
+
+    // Daftar peserta yang punya foto wajah (incremental sync via ?since=)
+    Route::get('participants', [MobileApiController::class, 'participants'])->name('participants');
+
+    // Download foto peserta (binary JPEG)
+    Route::get('participants/{id}/photo', [MobileApiController::class, 'participantPhoto'])->name('participants.photo');
+
+    // Sesi aktif saat ini
+    Route::get('sessions/active', [MobileApiController::class, 'activeSession'])->name('sessions.active');
+
+    // Semua sesi
+    Route::get('sessions', [MobileApiController::class, 'sessions'])->name('sessions');
+
+    // Catat absensi (single atau batch untuk upload offline queue)
+    Route::post('attendance', [MobileApiController::class, 'recordAttendance'])->name('attendance');
+});
+
