@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.flex.FlexDelegate
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -29,66 +28,53 @@ class FaceNetModel(context: Context) {
         private const val CHANNELS    = 3    // RGB
         private const val PIXEL_BYTES = 4    // float32
 
-        // Diagnostik error jika gagal load model
+        // Diagnostik error jika gagal load atau run model
         var loadError: String? = null
+        var inferenceError: String? = null
     }
 
     private var interpreter: Interpreter? = null
-    private var flexDelegate: FlexDelegate? = null
     val isReady: Boolean get() = interpreter != null
 
     init {
         try {
-            // FlexDelegate dibutuhkan untuk model yang menggunakan ops non-standar TFLite
-            // seperti FaceNet (BatchMatMulV2, dll)
-            val delegate = FlexDelegate()
-            flexDelegate = delegate
-
             val options = Interpreter.Options().apply {
-                addDelegate(delegate)
                 setNumThreads(4)
             }
-            // Membaca model menggunakan direct ByteBuffer (aman dari kompresi gradle/AAPT)
             val modelBuffer = loadModelFile(context)
             interpreter = Interpreter(modelBuffer, options)
             loadError = null
-            Log.d(TAG, "FaceNet model loaded successfully with FlexDelegate")
+            Log.d(TAG, "FaceNet model loaded successfully. Input tensors: ${interpreter!!.inputTensorCount}")
         } catch (e: Exception) {
             loadError = e.message ?: e.toString()
             Log.e(TAG, "Failed to load FaceNet model: ${e.message}", e)
-            Log.e(TAG, "Pastikan file facenet.tflite ada di assets/")
         }
     }
-
 
     /**
      * Menghasilkan embedding 512-d dari bitmap wajah.
-     * @param faceBitmap Bitmap wajah yang sudah di-crop (akan di-resize ke 160×160)
-     * @return FloatArray 512 dimensi, atau null jika model belum siap
      */
     fun getEmbedding(faceBitmap: Bitmap): FloatArray? {
-        val interpreter = this.interpreter ?: return null
-
-        // Resize ke 160×160
-        val resized = Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true)
-
-        // Konversi ke ByteBuffer
-        val inputBuffer = bitmapToByteBuffer(resized)
-
-        // Output: [1, 512] float
-        val outputArray = Array(1) { FloatArray(EMBEDDING_SIZE) }
-
-        try {
-            interpreter.run(inputBuffer, outputArray)
-        } catch (e: Exception) {
-            Log.e(TAG, "Inference error: ${e.message}")
+        val interpreter = this.interpreter ?: run {
+            Log.e(TAG, "Interpreter null saat getEmbedding")
             return null
         }
 
-        // L2 normalize embedding
-        val embedding = outputArray[0]
-        return l2Normalize(embedding)
+        val resized = Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true)
+        val inputBuffer = bitmapToByteBuffer(resized)
+        val outputArray = Array(1) { FloatArray(EMBEDDING_SIZE) }
+
+        return try {
+            interpreter.run(inputBuffer, outputArray)
+            inferenceError = null
+            l2Normalize(outputArray[0])
+        } catch (e: Exception) {
+            inferenceError = e.message ?: e.toString()
+            Log.e(TAG, "Inference error: ${e.message}", e)
+            null
+        }
     }
+
 
     /**
      * Konversi bitmap ke ByteBuffer yang dinormalisasi ke range [-1, 1].
@@ -145,7 +131,5 @@ class FaceNetModel(context: Context) {
     fun close() {
         interpreter?.close()
         interpreter = null
-        flexDelegate?.close()
-        flexDelegate = null
     }
 }

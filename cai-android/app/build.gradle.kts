@@ -17,6 +17,9 @@ android {
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // Hanya build untuk ARM64 (semua tablet modern pakai arm64-v8a)
+        // Ini mencegah APK membengkak karena library native multi-ABI
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     buildTypes {
@@ -95,8 +98,8 @@ dependencies {
     // ── TensorFlow Lite - FaceNet Embedding ───────────────────────────────────
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
-    // Select TF Ops: wajib untuk model FaceNet yang pakai custom ops (BatchMatMul, dll)
-    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.14.0")
+    // CATATAN: tensorflow-lite-select-tf-ops dihapus karena membuat APK 500MB!
+    // FaceNet model shubham0204 menggunakan standard TFLite ops saja.
 
     // ── Room Database (lokal) ─────────────────────────────────────────────────
     implementation("androidx.room:room-runtime:2.6.1")

@@ -217,7 +217,9 @@ fun HomeScreen(
 
             // Info embedding
             if (state.totalWithEmbedding == 0 && state.totalWithPhoto > 0) {
-                val errorMsg = com.cai.attendance.ml.FaceNetModel.loadError
+                val loadErr = com.cai.attendance.ml.FaceNetModel.loadError
+                val inferErr = com.cai.attendance.ml.FaceNetModel.inferenceError
+                val errorMsg = loadErr ?: inferErr
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = CaiWarning.copy(alpha = 0.12f)
@@ -231,8 +233,11 @@ fun HomeScreen(
                         Icon(Icons.Default.Warning, contentDescription = null, tint = CaiWarning)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = if (errorMsg != null) "Gagal load TFLite: $errorMsg"
-                                   else "Embedding belum dibuat. Lakukan sync ulang untuk generate embedding wajah.",
+                            text = when {
+                                loadErr != null  -> "Error load model: $loadErr"
+                                inferErr != null -> "Error inference: $inferErr"
+                                else -> "Embedding belum dibuat. Lakukan sync ulang untuk generate embedding wajah."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = CaiWarning
                         )
