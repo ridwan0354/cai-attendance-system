@@ -23,8 +23,6 @@ class FaceNetModel(context: Context) {
     companion object {
         private const val TAG = "FaceNetModel"
         private const val MODEL_FILE  = "facenet.tflite"
-        private const val INPUT_SIZE  = 160   // 160×160 pixel
-        private const val EMBEDDING_SIZE = 512
         private const val CHANNELS    = 3    // RGB
         private const val PIXEL_BYTES = 4    // float32
 
@@ -34,6 +32,13 @@ class FaceNetModel(context: Context) {
     }
 
     private var interpreter: Interpreter? = null
+    
+    // Default nilai sebelum dideteksi dari interpreter
+    var inputSize: Int = 160
+        private set
+    var embeddingSize: Int = 512
+        private set
+
     val isReady: Boolean get() = interpreter != null
 
     init {
@@ -42,9 +47,25 @@ class FaceNetModel(context: Context) {
                 setNumThreads(4)
             }
             val modelBuffer = loadModelFile(context)
-            interpreter = Interpreter(modelBuffer, options)
+            val interp = Interpreter(modelBuffer, options)
+            
+            // Deteksi ukuran input secara dinamis [1, height, width, channels]
+            val inputShape = interp.getInputTensor(0).shape()
+            if (inputShape != null && inputShape.size >= 3) {
+                inputSize = inputShape[1] // Tinggi gambar input
+                Log.d(TAG, "Dinamis: Input size terdeteksi = $inputSize")
+            }
+
+            // Deteksi ukuran embedding output secara dinamis [1, embedding_size]
+            val outputShape = interp.getOutputTensor(0).shape()
+            if (outputShape != null && outputShape.isNotEmpty()) {
+                embeddingSize = outputShape.last()
+                Log.d(TAG, "Dinamis: Embedding size terdeteksi = $embeddingSize")
+            }
+
+            interpreter = interp
             loadError = null
-            Log.d(TAG, "FaceNet model loaded successfully. Input tensors: ${interpreter!!.inputTensorCount}")
+            Log.d(TAG, "FaceNet model loaded successfully. Input: $inputSize, Output embedding: $embeddingSize")
         } catch (e: Exception) {
             loadError = e.message ?: e.toString()
             Log.e(TAG, "Failed to load FaceNet model: ${e.message}", e)
@@ -52,7 +73,7 @@ class FaceNetModel(context: Context) {
     }
 
     /**
-     * Menghasilkan embedding 512-d dari bitmap wajah.
+     * Menghasilkan embedding dari bitmap wajah.
      */
     fun getEmbedding(faceBitmap: Bitmap): FloatArray? {
         val interpreter = this.interpreter ?: run {
@@ -60,9 +81,12 @@ class FaceNetModel(context: Context) {
             return null
         }
 
-        val resized = Bitmap.createScaledBitmap(faceBitmap, INPUT_SIZE, INPUT_SIZE, true)
+        // Gunakan inputSize dinamis
+        val resized = Bitmap.createScaledBitmap(faceBitmap, inputSize, inputSize, true)
         val inputBuffer = bitmapToByteBuffer(resized)
-        val outputArray = Array(1) { FloatArray(EMBEDDING_SIZE) }
+        
+        // Gunakan embeddingSize dinamis
+        val outputArray = Array(1) { FloatArray(embeddingSize) }
 
         return try {
             interpreter.run(inputBuffer, outputArray)
@@ -75,17 +99,16 @@ class FaceNetModel(context: Context) {
         }
     }
 
-
     /**
      * Konversi bitmap ke ByteBuffer yang dinormalisasi ke range [-1, 1].
      */
     private fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
         val buffer = ByteBuffer.allocateDirect(
-            1 * INPUT_SIZE * INPUT_SIZE * CHANNELS * PIXEL_BYTES
+            1 * inputSize * inputSize * CHANNELS * PIXEL_BYTES
         ).apply { order(ByteOrder.nativeOrder()) }
 
-        val pixels = IntArray(INPUT_SIZE * INPUT_SIZE)
-        bitmap.getPixels(pixels, 0, INPUT_SIZE, 0, 0, INPUT_SIZE, INPUT_SIZE)
+        val pixels = IntArray(inputSize * inputSize)
+        bitmap.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
 
         for (pixel in pixels) {
             val r = ((pixel shr 16) and 0xFF).toFloat()
@@ -110,6 +133,7 @@ class FaceNetModel(context: Context) {
         if (norm == 0f) return embedding
         return FloatArray(embedding.size) { embedding[it] / norm }
     }
+
 
     /**
      * Membaca file asset secara langsung sebagai byte array dan membungkusnya
