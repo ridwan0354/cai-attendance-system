@@ -47,6 +47,9 @@ interface ParticipantDao {
     @Query("DELETE FROM participants")
     suspend fun deleteAll()
 
+    @Query("DELETE FROM participants WHERE id NOT IN (:serverIds)")
+    suspend fun deleteExceptIds(serverIds: List<Int>)
+
     @Query("SELECT COUNT(*) FROM participants")
     suspend fun count(): Int
 

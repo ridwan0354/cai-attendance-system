@@ -184,6 +184,22 @@ class ParticipantRepository @Inject constructor(
                 participantDao.insert(entity)
             }
 
+            // 3. Bersihkan data peserta lokal yang sudah dihapus di server VPS
+            val serverIds = allParticipantDtos.map { it.id }
+            if (serverIds.isNotEmpty()) {
+                val localParticipants = participantDao.getAll()
+                for (local in localParticipants) {
+                    if (local.id !in serverIds) {
+                        val photoFile = getPhotoFile(local.id)
+                        if (photoFile.exists()) {
+                            photoFile.delete() // Hapus file foto dari internal storage
+                        }
+                    }
+                }
+                participantDao.deleteExceptIds(serverIds)
+                Log.d(TAG, "Cleared deleted participants from local DB. Server IDs count: ${serverIds.size}")
+            }
+
             Log.d(TAG, "Sync complete. Downloaded: $downloaded, Embedded: $embedded, Skipped: $skipped")
             SyncResult.Success(downloaded, embedded, skipped)
 
