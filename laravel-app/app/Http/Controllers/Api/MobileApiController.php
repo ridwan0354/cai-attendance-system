@@ -488,7 +488,10 @@ class MobileApiController extends Controller
         }
 
         // Gunakan waktu dari Android (saat scan offline) atau fallback ke now()
-        $checkedAt = $checkInTime ? \Carbon\Carbon::parse($checkInTime) : now();
+        // Konversi eksplisit ke timezone aplikasi agar tersimpan dengan jam lokal yang benar
+        $checkedAt = $checkInTime 
+            ? \Carbon\Carbon::parse($checkInTime)->setTimezone(config('app.timezone', 'Asia/Makassar')) 
+            : now();
 
         $attendance = Attendance::create([
             'participant_id'   => $participantId,

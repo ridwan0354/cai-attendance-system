@@ -9,7 +9,7 @@ import com.cai.attendance.data.remote.dto.SessionDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
-import java.time.Instant
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,7 +43,9 @@ class AttendanceRepository @Inject constructor(
         confidenceScore: Float?,
     ): Boolean = withContext(Dispatchers.IO) {
 
-        val now = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
+        // Gunakan waktu lokal perangkat beserta offset timezone (misal: 2026-07-07T17:51:36+08:00)
+        // Ini memastikan Laravel server mengkonversi waktu ke timezone yang benar di dashboard.
+        val now = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(ZonedDateTime.now())
 
         // Simpan ke antrian lokal dulu
         val queueId = queueDao.insert(
