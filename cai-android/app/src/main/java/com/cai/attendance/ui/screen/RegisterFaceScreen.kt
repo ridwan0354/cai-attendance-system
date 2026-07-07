@@ -63,8 +63,9 @@ fun RegisterFaceScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted -> hasCameraPermission = granted }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(participantId) {
         viewModel.resetRegisterState()
+        viewModel.loadParticipantSupplies(participantId)
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -215,7 +216,7 @@ fun RegisterFaceScreen(
                                         bitmap        = capturedBitmap!!,
                                         onComplete    = { success ->
                                             if (success) {
-                                                // show dialog instead of navigating back immediately
+                                                // Dialog akan terbuka otomatis oleh state model
                                             }
                                         }
                                     )
@@ -248,8 +249,11 @@ fun RegisterFaceScreen(
         }
     }
 
-    // Popup Konfirmasi Sukses Registrasi Wajah
+    // Popup Konfirmasi Sukses Registrasi Wajah & Pemilihan Barang Registrasi
     if (registerState.isSuccess == true && capturedBitmap != null) {
+        val supplies by viewModel.participantSupplies.collectAsState()
+        val isSuppliesLoading by viewModel.isSuppliesLoading.collectAsState()
+
         AlertDialog(
             onDismissRequest = { /* prevent dismiss on outside click */ },
             title = {
@@ -265,7 +269,7 @@ fun RegisterFaceScreen(
                         modifier = Modifier.size(28.dp)
                     )
                     Text(
-                        text = "Registrasi Wajah Berhasil",
+                        text = "Registrasi Wajah Sukses!",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = CaiTextPrimary
@@ -281,7 +285,7 @@ fun RegisterFaceScreen(
                     // Tampilkan foto wajah yang diambil di dalam bingkai bulat
                     Box(
                         modifier = Modifier
-                            .size(100.dp)
+                            .size(90.dp)
                             .clip(CircleShape)
                             .border(width = 3.dp, color = CaiSuccess, shape = CircleShape)
                             .background(CaiNavyLight)
@@ -294,45 +298,62 @@ fun RegisterFaceScreen(
                     }
 
                     Text(
-                        text = "Wajah untuk peserta \"$participantName\" telah sukses dikonfigurasi.",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "Wajah peserta \"$participantName\" telah sukses terdaftar.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = CaiTextSecondary,
                         textAlign = TextAlign.Center
                     )
 
-                    // Checklist konfirmasi apa saja yang sudah berhasil diambil/dibuat
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = CaiNavyLight),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Detail Aset yang Terbentuk:",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = CaiAccent
-                            )
-                            
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Foto Lokal (.jpg) -> Tersimpan", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
-                            }
-                            
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Upload Server Pusat -> Berhasil", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
-                            }
+                    Divider(color = CaiBorder, thickness = 1.dp)
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Embedding Wajah (${viewModel.participantsList.value.firstOrNull { it.id == participantId }?.embeddingJson?.let { "Siap" } ?: "Siap"}) -> Terhitung", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
+                    // Checklist barang registrasi yang diambil
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Centang barang yang diambil peserta:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = CaiAccent
+                        )
+
+                        if (isSuppliesLoading) {
+                            Box(modifier = Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = CaiAccent, modifier = Modifier.size(24.dp))
+                            }
+                        } else if (supplies.isEmpty()) {
+                            Text(
+                                "Tidak ada barang registrasi terdaftar di server.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = CaiTextMuted
+                            )
+                        } else {
+                            supplies.forEach { supply ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(CaiNavyLight, RoundedCornerShape(8.dp))
+                                        .clickable { viewModel.toggleSupplySelection(supply.id) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = supply.received,
+                                        onCheckedChange = { viewModel.toggleSupplySelection(supply.id) },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = CaiSuccess,
+                                            uncheckedColor = CaiBorder
+                                        ),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = supply.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = CaiTextPrimary
+                                    )
+                                }
                             }
                         }
                     }
@@ -341,16 +362,20 @@ fun RegisterFaceScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.resetRegisterState()
-                        onNavigateBack()
+                        // Simpan checklist barang ke server terlebih dahulu
+                        viewModel.saveParticipantSupplies(participantId) {
+                            viewModel.resetRegisterState()
+                            onNavigateBack()
+                        }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CaiBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = CaiSuccess)
                 ) {
-                    Text("Selesai", color = CaiTextPrimary)
+                    Text("Simpan & Selesai", color = CaiTextPrimary)
                 }
             },
             containerColor = CaiSurfaceCard,
             shape = RoundedCornerShape(20.dp)
         )
     }
+}
 }

@@ -283,4 +283,33 @@ class ParticipantRepository @Inject constructor(
             faceNet.close()
         }
     }
+
+    /** Ambil status barang registrasi peserta dari server */
+    suspend fun getParticipantSupplies(participantId: Int): Result<List<com.cai.attendance.data.remote.dto.SupplyDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getParticipantSupplies(participantId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(Exception("Gagal mengambil data barang: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Update/sinkronisasi barang yang diambil peserta ke server */
+    suspend fun syncParticipantSupplies(participantId: Int, supplyIds: List<Int>): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = com.cai.attendance.data.remote.dto.SyncSuppliesRequest(supplyIds)
+            val response = apiService.syncParticipantSupplies(participantId, request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()?.message ?: "Registrasi barang sukses diperbarui")
+            } else {
+                Result.failure(Exception("Gagal menyimpan registrasi barang: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

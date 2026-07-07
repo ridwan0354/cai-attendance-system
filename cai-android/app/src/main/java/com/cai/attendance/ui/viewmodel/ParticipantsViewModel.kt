@@ -98,6 +98,53 @@ class ParticipantsViewModel @Inject constructor(
 
     fun resetRegisterState() {
         _registerState.value = RegisterFaceUiState()
+        _participantSupplies.value = emptyList()
+    }
+
+    private val _participantSupplies = MutableStateFlow<List<com.cai.attendance.data.remote.dto.SupplyDto>>(emptyList())
+    val participantSupplies: StateFlow<List<com.cai.attendance.data.remote.dto.SupplyDto>> = _participantSupplies.asStateFlow()
+
+    private val _isSuppliesLoading = MutableStateFlow(false)
+    val isSuppliesLoading: StateFlow<Boolean> = _isSuppliesLoading.asStateFlow()
+
+    fun loadParticipantSupplies(participantId: Int) {
+        viewModelScope.launch {
+            _isSuppliesLoading.value = true
+            val result = participantRepo.getParticipantSupplies(participantId)
+            result.fold(
+                onSuccess = { list ->
+                    _participantSupplies.value = list
+                },
+                onFailure = {
+                    Log.e("ParticipantsViewModel", "Failed to load supplies: ${it.message}")
+                }
+            )
+            _isSuppliesLoading.value = false
+        }
+    }
+
+    fun toggleSupplySelection(supplyId: Int) {
+        val currentList = _participantSupplies.value
+        _participantSupplies.value = currentList.map {
+            if (it.id == supplyId) it.copy(received = !it.received) else it
+        }
+    }
+
+    fun saveParticipantSupplies(participantId: Int, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val selectedIds = _participantSupplies.value.filter { it.received }.map { it.id }
+            val result = participantRepo.syncParticipantSupplies(participantId, selectedIds)
+            result.fold(
+                onSuccess = {
+                    Log.d("ParticipantsViewModel", "Supplies saved successfully")
+                    onComplete(true)
+                },
+                onFailure = {
+                    Log.e("ParticipantsViewModel", "Failed to save supplies: ${it.message}")
+                    onComplete(false)
+                }
+            )
+        }
     }
 
     private suspend fun bitmapToBase64(bitmap: Bitmap): String = kotlinx.coroutines.withContext(Dispatchers.Default) {

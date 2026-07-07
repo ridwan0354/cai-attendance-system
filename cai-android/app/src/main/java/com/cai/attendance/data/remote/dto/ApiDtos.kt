@@ -92,3 +92,25 @@ data class RegisterFaceResponse(
     @SerializedName("message") val message: String?
 )
 
+// ── Model Aset Registrasi Barang (Supplies) ──────────────────────────────────
+data class SupplyDto(
+    @SerializedName("id")       val id: Int,
+    @SerializedName("name")     val name: String,
+    @SerializedName("received") val received: Boolean = false
+)
+
+data class SuppliesResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data")    val data: List<SupplyDto>
+)
+
+data class SyncSuppliesRequest(
+    @SerializedName("supplies") val supplies: List<Int>
+)
+
+data class SyncSuppliesResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("message") val message: String?
+)
+
+

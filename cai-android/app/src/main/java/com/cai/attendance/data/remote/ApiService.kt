@@ -61,4 +61,17 @@ interface ApiService {
     suspend fun recordAttendance(
         @Body body: AttendanceRequest
     ): Response<AttendanceResponse>
+
+    /** Ambil status barang registrasi (supplies) milik seorang peserta */
+    @GET("api/mobile/participants/{id}/supplies")
+    suspend fun getParticipantSupplies(
+        @Path("id") participantId: Int
+    ): Response<SuppliesResponse>
+
+    /** Sinkronisasi barang registrasi yang diambil oleh seorang peserta */
+    @POST("api/mobile/participants/{id}/supplies")
+    suspend fun syncParticipantSupplies(
+        @Path("id") participantId: Int,
+        @Body body: SyncSuppliesRequest
+    ): Response<SyncSuppliesResponse>
 }
