@@ -98,5 +98,11 @@ Route::prefix('api/mobile')->name('api.mobile.')->group(function () {
 
     // Catat absensi (single atau batch untuk upload offline queue)
     Route::post('attendance', [MobileApiController::class, 'recordAttendance'])->name('attendance');
+
+    // Registrasi Barang (Supplies) Check-in
+    Route::get('supplies', [MobileApiController::class, 'supplies'])->name('supplies');
+    Route::get('participants/{id}/supplies', [MobileApiController::class, 'participantSupplies'])->name('participants.supplies');
+    Route::post('participants/{id}/supplies', [MobileApiController::class, 'syncParticipantSupplies'])->name('participants.sync-supplies');
 });
+
 

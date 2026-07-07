@@ -522,4 +522,82 @@ class MobileApiController extends Controller
             'already_present'  => false,
         ];
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/mobile/supplies
+    // Daftar semua jenis barang registrasi global
+    // ─────────────────────────────────────────────────────────────────────────
+    public function supplies(Request $request): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $supplies = \App\Models\Supply::orderBy('name')->get()->map(fn($s) => [
+            'id'   => $s->id,
+            'name' => $s->name,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $supplies,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/mobile/participants/{id}/supplies
+    // Daftar status pengambilan barang untuk peserta tertentu
+    // ─────────────────────────────────────────────────────────────────────────
+    public function participantSupplies(Request $request, int $id): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $participant = Participant::find($id);
+        if (!$participant) {
+            return response()->json(['success' => false, 'message' => 'Peserta tidak ditemukan.'], 404);
+        }
+
+        $supplies = \App\Models\Supply::orderBy('name')->get()->map(fn($s) => [
+            'id'       => $s->id,
+            'name'     => $s->name,
+            'received' => $participant->supplies()->where('supply_id', $s->id)->exists(),
+        ]);
+
+        return response()->json([
+            'success'  => true,
+            'data'     => $supplies,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /api/mobile/participants/{id}/supplies
+    // Menyinkronkan/menyimpan barang registrasi yang diambil peserta
+    // ─────────────────────────────────────────────────────────────────────────
+    public function syncParticipantSupplies(Request $request, int $id): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $participant = Participant::find($id);
+        if (!$participant) {
+            return response()->json(['success' => false, 'message' => 'Peserta tidak ditemukan.'], 404);
+        }
+
+        $request->validate([
+            'supplies'   => 'nullable|array',
+            'supplies.*' => 'integer|exists:supplies,id',
+        ]);
+
+        // Sinkronisasi barang ke pivot table
+        $participant->supplies()->sync($request->input('supplies', []));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registrasi barang berhasil diperbarui.',
+        ]);
+    }
 }
+
