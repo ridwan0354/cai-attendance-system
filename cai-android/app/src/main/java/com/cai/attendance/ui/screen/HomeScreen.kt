@@ -33,6 +33,7 @@ fun HomeScreen(
     onLogout: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val pendingCount by viewModel.pendingCount.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
