@@ -130,29 +130,47 @@ class MobileApiController extends Controller
      */
     public function participantPhoto(Request $request, int $id): Response|JsonResponse
     {
-        if (!$this->checkApiKey($request)) {
-            return $this->unauthorizedResponse();
+        try {
+            if (!$this->checkApiKey($request)) {
+                return $this->unauthorizedResponse();
+            }
+
+            $participant = Participant::find($id);
+            if (!$participant) {
+                return response()->json(['success' => false, 'message' => 'Peserta tidak ditemukan.'], 404);
+            }
+
+            $photoPath = base_path('../python-face-service/face_db/' . $id . '/photo.jpg');
+
+            if (!file_exists($photoPath)) {
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Foto belum terdaftar di path: ' . $photoPath
+                ], 404);
+            }
+
+            // Baca konten secara langsung untuk meminimalkan kendala file-lock/permission dari Symfony BinaryFileResponse
+            $content = @file_get_contents($photoPath);
+            if ($content === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal membaca file foto wajah. Pastikan webserver memiliki izin membaca file: ' . $photoPath
+                ], 500);
+            }
+
+            // Serve langsung sebagai binary JPEG
+            return response($content, 200, [
+                'Content-Type'  => 'image/jpeg',
+                'Cache-Control' => 'public, max-age=86400',
+                'ETag'          => md5($content),
+                'X-Participant-Id' => $id,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
         }
-
-        $participant = Participant::find($id);
-        if (!$participant) {
-            return response()->json(['success' => false, 'message' => 'Peserta tidak ditemukan.'], 404);
-        }
-
-        $photoPath = base_path('../python-face-service/face_db/' . $id . '/photo.jpg');
-
-        if (!file_exists($photoPath)) {
-            return response()->json(['success' => false, 'message' => 'Foto belum terdaftar.'], 404);
-        }
-
-        // Serve langsung sebagai binary JPEG
-        // Android app akan menerima ini dan menyimpan lokal
-        return response()->file($photoPath, [
-            'Content-Type'  => 'image/jpeg',
-            'Cache-Control' => 'public, max-age=86400',
-            'ETag'          => md5_file($photoPath),
-            'X-Participant-Id' => $id,
-        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
