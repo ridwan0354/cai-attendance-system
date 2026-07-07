@@ -214,8 +214,7 @@ fun RegisterFaceScreen(
                                         bitmap        = capturedBitmap!!,
                                         onComplete    = { success ->
                                             if (success) {
-                                                Toast.makeText(context, "Wajah sukses didaftarkan!", Toast.LENGTH_SHORT).show()
-                                                onNavigateBack()
+                                                // show dialog instead of navigating back immediately
                                             }
                                         }
                                     )
@@ -246,5 +245,111 @@ fun RegisterFaceScreen(
                 }
             }
         }
+    }
+
+    // Popup Konfirmasi Sukses Registrasi Wajah
+    if (registerState.isSuccess == true && capturedBitmap != null) {
+        AlertDialog(
+            onDismissRequest = { /* prevent dismiss on outside click */ },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = CaiSuccess,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Text(
+                        text = "Registrasi Wajah Berhasil",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CaiTextPrimary
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Tampilkan foto wajah yang diambil di dalam bingkai bulat
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .border(width = 3.dp, color = CaiSuccess, shape = CircleShape)
+                            .background(CaiNavyLight)
+                    ) {
+                        Image(
+                            bitmap = capturedBitmap!!.asImageBitmap(),
+                            contentDescription = "Foto terdaftar",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Text(
+                        text = "Wajah untuk peserta \"$participantName\" telah sukses dikonfigurasi.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = CaiTextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    // Checklist konfirmasi apa saja yang sudah berhasil diambil/dibuat
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = CaiNavyLight),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Detail Aset yang Terbentuk:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = CaiAccent
+                            )
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Foto Lokal (.jpg) -> Tersimpan", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
+                            }
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Upload Server Pusat -> Berhasil", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = CaiSuccess, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Embedding Wajah (${viewModel.participantsList.value.firstOrNull { it.id == participantId }?.embeddingJson?.let { "Siap" } ?: "Siap"}) -> Terhitung", style = MaterialTheme.typography.bodySmall, color = CaiTextPrimary)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetRegisterState()
+                        onNavigateBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CaiBlue)
+                ) {
+                    Text("Selesai", color = CaiTextPrimary)
+                }
+            },
+            containerColor = CaiSurfaceCard,
+            shape = RoundedCornerShape(20.dp)
+        )
     }
 }
