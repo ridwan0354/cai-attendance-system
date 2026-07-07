@@ -63,9 +63,16 @@ class HomeViewModel @Inject constructor(
         SyncWorker.runNow(workManager)
     }
 
-    fun uploadPending() {
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    fun uploadPending(onComplete: (count: Int) -> Unit) {
         viewModelScope.launch {
-            attendanceRepo.uploadPendingQueue()
+            _isUploading.value = true
+            val count = attendanceRepo.uploadPendingQueue()
+            _isUploading.value = false
+            onComplete(count)
+            loadStats() // Reload statistik di home agar angka antrian langsung jadi 0
         }
     }
 

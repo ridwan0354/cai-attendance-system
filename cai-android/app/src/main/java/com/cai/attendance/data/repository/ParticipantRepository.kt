@@ -268,17 +268,28 @@ class ParticipantRepository @Inject constructor(
                 )
             }
 
-            // 2. Simpan foto secara lokal ke disk internal storage
+            // 2. Deteksi wajah dan potong (crop) agar sesuai dengan format scanner absensi
+            val faceDetector = FaceDetectorHelper()
+            val faces = faceDetector.detectFaces(bitmap)
+            val processedBitmap = if (faces.isNotEmpty()) {
+                faceDetector.cropFace(bitmap, faces.first()) ?: bitmap
+            } else {
+                bitmap
+            }
+            faceDetector.close()
+
+            // 3. Simpan foto wajah hasil crop secara lokal ke disk internal storage
             val photoFile = getPhotoFile(participantId)
             val outStream = FileOutputStream(photoFile)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outStream)
+            processedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, outStream)
             outStream.flush()
             outStream.close()
 
-            // 3. Hasilkan embedding secara lokal agar HP ini bisa langsung mendeteksi wajah tersebut
+            // 4. Hasilkan embedding secara lokal agar HP ini bisa langsung mendeteksi wajah tersebut
             var embeddingJson: String? = null
             if (faceNet.isReady) {
-                val embedding = faceNet.getEmbedding(bitmap)
+                // Gunakan processedBitmap (wajah hasil crop) agar embedding match dengan data scanner
+                val embedding = faceNet.getEmbedding(processedBitmap)
                 if (embedding != null) {
                     embeddingJson = FaceMatcher.serializeEmbedding(embedding)
                 }

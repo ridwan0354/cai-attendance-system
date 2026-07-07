@@ -141,20 +141,32 @@ fun HomeScreen(
                 )
             }
 
+            val isUploading by viewModel.isUploading.collectAsState()
+
             // Tombol upload pending jika ada
             if (pendingCount > 0) {
                 OutlinedButton(
-                    onClick  = viewModel::uploadPending,
+                    onClick  = {
+                        viewModel.uploadPending { count ->
+                            android.widget.Toast.makeText(context, "$count data absensi offline berhasil diunggah!", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled  = !isUploading,
                     shape    = RoundedCornerShape(12.dp),
                     colors   = ButtonDefaults.outlinedButtonColors(contentColor = CaiWarning),
                     border   = ButtonDefaults.outlinedButtonBorder
                 ) {
-                    Icon(Icons.Default.CloudUpload, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Upload $pendingCount Absensi Offline")
+                    if (isUploading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = CaiWarning, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.CloudUpload, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Upload $pendingCount Absensi Offline")
+                    }
                 }
             }
+
 
             Divider(color = CaiBorder, thickness = 1.dp)
 
