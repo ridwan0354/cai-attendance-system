@@ -989,7 +989,8 @@ async function reloadFaceMatcher() {
     });
 
     if (labeledDescriptors.length > 0) {
-        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.50);
+        // Threshold jarak pencocokan wajah diperketat menjadi 0.40 (semakin kecil, semakin ketat)
+        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.40);
         console.log(`FaceMatcher loaded with ${labeledDescriptors.length} participants`);
     } else {
         faceMatcher = null;
