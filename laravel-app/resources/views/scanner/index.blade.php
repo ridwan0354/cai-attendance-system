@@ -676,7 +676,6 @@ async function loadFaceApi() {
         localDB = await openDB();
         await reloadFaceMatcher();
         await updateOfflineQueueBadge();
-        await syncDataFromServer();
         await uploadOfflineQueue();
 
         if (!SESSION_ID) {
