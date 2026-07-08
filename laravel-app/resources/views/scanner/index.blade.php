@@ -918,6 +918,7 @@ async function matchFaceLocally(face, descriptor) {
 
     try {
         const match = faceMatcher.findBestMatch(descriptor);
+        console.log(`[Face API Matcher] Cocok: ${match.label}, Jarak Euclidean: ${match.distance.toFixed(3)}`);
         
         // Cari wajah terlacak saat ini untuk memperbarui statusnya
         const currentFace = trackedFaces.find(f => f.id === face.id);
@@ -989,8 +990,8 @@ async function reloadFaceMatcher() {
     });
 
     if (labeledDescriptors.length > 0) {
-        // Threshold jarak pencocokan wajah diperketat menjadi 0.40 (semakin kecil, semakin ketat)
-        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.40);
+        // Threshold jarak pencocokan wajah diatur ke 0.45 (nilai seimbang)
+        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45);
         console.log(`FaceMatcher loaded with ${labeledDescriptors.length} participants`);
     } else {
         faceMatcher = null;
