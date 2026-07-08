@@ -905,9 +905,195 @@ function trackDetections(detections) {
     });
 }
 
-// ── Face recognition request ──────────────────────────────────────────────────
+// ── Load Face Matcher dari IndexedDB ──────────────────────────────────────────
+async function reloadFaceMatcher() {
+    const participants = await getAllFromStore('participants');
+    const labeledDescriptors = [];
+
+    participants.forEach(p => {
+        if (p.embedding) {
+            // Deskriptor wajah disimpan sebagai Float32Array
+            const descriptor = new Float32Array(p.embedding);
+            labeledDescriptors.push(
+                new faceapi.LabeledFaceDescriptors(p.id.toString(), [descriptor])
+            );
+        }
+    });
+
+    if (labeledDescriptors.length > 0) {
+        // Set threshold jarak kecocokan wajah = 0.50 (semakin kecil, semakin ketat)
+        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.50);
+        console.log(`FaceMatcher loaded with ${labeledDescriptors.length} participants`);
+    } else {
+        faceMatcher = null;
+        console.log('FaceMatcher empty. Lakukan sinkronisasi wajah.');
+    }
+}
+
+// ── Sinkronisasi Data Peserta & Wajah Dari Server Laravel ────────────────────
+async function syncDataFromServer(force = false) {
+    if (!navigator.onLine) {
+        showToast('⚠️ Gagal sinkronisasi: Perangkat offline.', 'error');
+        return;
+    }
+
+    try {
+        if (force) {
+            syncModal.style.display = 'flex';
+            syncText.textContent = 'Menghubungkan ke server...';
+            syncBar.style.width = '0%';
+            syncPercent.textContent = '0%';
+        }
+
+        // 1. Ambil daftar peserta dari Laravel (gunakan API mobile yang sudah ada)
+        const res = await fetch('/api/mobile/participants?per_page=500', {
+            headers: { 'X-Api-Key': API_KEY }
+        });
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const resBody = await res.json();
+        if (!resBody.success) throw new Error(resBody.message || 'Server error');
+
+        const serverParticipants = resBody.data;
+        const total = serverParticipants.length;
+
+        // Bersihkan peserta yang sudah dihapus di server
+        const localParticipants = await getAllFromStore('participants');
+        const serverIds = new Set(serverParticipants.map(sp => sp.id));
+        for (const lp of localParticipants) {
+            if (!serverIds.has(lp.id)) {
+                await deleteFromStore('participants', lp.id);
+            }
+        }
+
+        // 2. Loop & sinkronisasi embedding wajah peserta
+        for (let i = 0; i < total; i++) {
+            const sp = serverParticipants[i];
+            
+            if (force) {
+                const pct = Math.round((i / total) * 100);
+                syncText.textContent = `Memproses: ${sp.name} (${i + 1}/${total})`;
+                syncBar.style.width = `${pct}%`;
+                syncPercent.textContent = `${pct}%`;
+            }
+
+            // Dapatkan data lokal saat ini
+            const localP = await getParticipantFromStore(sp.id);
+            
+            // Cek apakah butuh download/regenerate embedding
+            const needEmbedding = !localP || 
+                                  (sp.has_photo && !localP.embedding) || 
+                                  (localP.photo_hash !== sp.photo_hash);
+
+            if (sp.has_photo && needEmbedding) {
+                try {
+                    // Download foto wajah sebagai blob
+                    const photoRes = await fetch(`/api/mobile/participants/${sp.id}/photo`, {
+                        headers: { 'X-Api-Key': API_KEY }
+                    });
+                    
+                    if (photoRes.ok) {
+                        const blob = await photoRes.blob();
+                        const img = await blobToImage(blob);
+                        
+                        // Ekstrak face descriptor 128 dimensi
+                        const detection = await faceapi.detectSingleFace(
+                            img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.30 })
+                        ).withFaceLandmarks().withFaceDescriptor();
+
+                        if (detection) {
+                            const embedding = Array.from(detection.descriptor);
+                            await saveToStore('participants', {
+                                id: sp.id,
+                                name: sp.name,
+                                nik: sp.nik,
+                                group_name: sp.group_name || '',
+                                group_color: sp.group_color || '#0052cc',
+                                photo_hash: sp.photo_hash,
+                                embedding: embedding
+                            });
+                        } else {
+                            await saveToStore('participants', {
+                                id: sp.id,
+                                name: sp.name,
+                                nik: sp.nik,
+                                group_name: sp.group_name || '',
+                                group_color: sp.group_color || '#0052cc',
+                                photo_hash: sp.photo_hash,
+                                embedding: null
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`Gagal sync wajah untuk ${sp.name}:`, err.message);
+                }
+            } else if (!localP || localP.name !== sp.name) {
+                await saveToStore('participants', {
+                    id: sp.id,
+                    name: sp.name,
+                    nik: sp.nik,
+                    group_name: sp.group_name || '',
+                    group_color: sp.group_color || '#0052cc',
+                    photo_hash: sp.photo_hash,
+                    embedding: localP ? localP.embedding : null
+                });
+            }
+        }
+
+        // Muat ulang matcher wajah lokal
+        await reloadFaceMatcher();
+
+        if (force) {
+            syncBar.style.width = '100%';
+            syncPercent.textContent = '100%';
+            syncText.textContent = 'Selesai!';
+            setTimeout(() => {
+                syncModal.style.display = 'none';
+                showToast('✅ Sinkronisasi wajah sukses!', 'success');
+            }, 800);
+        }
+    } catch (err) {
+        console.error('Sync failed:', err);
+        if (force) {
+            syncModal.style.display = 'none';
+            showToast('❌ Gagal sinkronisasi: ' + err.message, 'error');
+        }
+    }
+}
+
+function getParticipantFromStore(id) {
+    return new Promise((resolve) => {
+        if (!localDB) return resolve(null);
+        const transaction = localDB.transaction('participants', 'readonly');
+        const store = transaction.objectStore('participants');
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+    });
+}
+
+function blobToImage(blob) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+        };
+        img.onerror = (e) => reject(e);
+        img.src = url;
+    });
+}
+
+// ── Face recognition request (100% LOKAL di Web Browser Client) ──────────────
 async function recognizeFace(face) {
     if (!SESSION_ID || !isScanning) return;
+    if (!faceMatcher) {
+        console.warn('FaceMatcher belum siap. Lewati deteksi lokal.');
+        face.status = 'failed';
+        return;
+    }
     
     // Mark as processing
     face.status = 'processing';
@@ -930,59 +1116,150 @@ async function recognizeFace(face) {
 
     try {
         cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 160, 160);
-        const base64 = cropCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
-        // Send to backend
-        const res = await fetch('/api/attendance/face', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': CSRF_TOKEN,
-            },
-            body: JSON.stringify({ image: base64, session_id: SESSION_ID })
-        });
-        
-        if (!res.ok) {
-            throw new Error(`HTTP error ${res.status}`);
-        }
-        
-        const data = await res.json();
+        // 1. Ekstrak descriptor wajah secara lokal menggunakan face-api.js
+        const detection = await faceapi.detectSingleFace(
+            cropCanvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35 })
+        ).withFaceLandmarks().withFaceDescriptor();
 
-        // Check if the face is still being tracked (might have walked away during the API call)
         const currentFace = trackedFaces.find(f => f.id === face.id);
         if (!currentFace) return;
 
-        if (data.success && data.recognized && data.matches.length > 0) {
-            const match = data.matches[0];
-            
-            // Check if they are already checked in (duplicate)
-            if (match.already_present || seenParticipants.has(match.participant_id)) {
-                currentFace.status = 'duplicate';
-                currentFace.name = match.participant_name;
-                seenParticipants.add(match.participant_id);
+        if (!detection) {
+            currentFace.status = 'scanning'; // Retry di frame berikutnya jika tidak terdeteksi
+            return;
+        }
+
+        // 2. Bandingkan dengan model matcher lokal kita
+        const match = faceMatcher.findBestMatch(detection.descriptor);
+        
+        if (match.label !== 'unknown') {
+            const participantId = parseInt(match.label, 10);
+            const participant = await getParticipantFromStore(participantId);
+
+            if (!participant) {
+                currentFace.status = 'unknown';
                 return;
             }
 
+            const confidence = Math.round((1 - match.distance) * 100);
+
+            // Cek duplikasi absensi lokal
+            if (seenParticipants.has(participantId)) {
+                currentFace.status = 'duplicate';
+                currentFace.name = participant.name;
+                return;
+            }
+
+            // Catat absensi secara lokal
+            const checkedTime = new Date().toISOString();
+            await recordAttendanceLocally(participantId, SESSION_ID, checkedTime, confidence);
+
             // Mark as recognized
             currentFace.status = 'recognized';
-            currentFace.name = match.participant_name;
-            currentFace.group = match.group_name;
-            currentFace.color = match.group_color;
+            currentFace.name = participant.name;
+            currentFace.group = participant.group_name;
+            currentFace.color = participant.group_color;
 
-            // Handle success trigger
-            handleRecognition(match);
+            // UI feedback
+            handleRecognition({
+                participant_id: participantId,
+                participant_name: participant.name,
+                group_name: participant.group_name,
+                group_color: participant.group_color,
+                confidence_score: confidence,
+                method: 'face',
+                check_in_time: new Date().toLocaleTimeString('id-ID')
+            });
         } else {
-            // Not recognized/Unknown
             currentFace.status = 'unknown';
         }
     } catch (err) {
-        console.warn('Recognition call failed:', err.message);
+        console.warn('Local recognition failed:', err.message);
         const currentFace = trackedFaces.find(f => f.id === face.id);
         if (currentFace) {
             currentFace.status = 'failed';
         }
     }
 }
+
+// ── Mencatat absensi di IndexedDB & Mencoba kirim ke server ─────────────────
+async function recordAttendanceLocally(participantId, sessionId, checkedTime, confidence) {
+    const queueRecord = {
+        participant_id: participantId,
+        session_id: sessionId,
+        check_in_time: checkedTime,
+        method: 'face',
+        confidence_score: confidence,
+        status: 'pending'
+    };
+
+    await saveToStore('attendance_queue', queueRecord);
+    await updateOfflineQueueBadge();
+    uploadOfflineQueue();
+}
+
+// ── Unggah Antrian Offline secara Background jika Online ────────────────────
+async function uploadOfflineQueue() {
+    if (!navigator.onLine || !localDB) return;
+
+    try {
+        const queue = await getAllFromStore('attendance_queue');
+        const pending = queue.filter(q => q.status === 'pending');
+        
+        if (pending.length === 0) return;
+
+        for (const record of pending) {
+            const response = await fetch('/api/mobile/attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Api-Key': API_KEY,
+                    'X-CSRF-TOKEN': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    participant_id: record.participant_id,
+                    session_id: record.session_id,
+                    method: record.method,
+                    confidence_score: record.confidence_score / 100,
+                    check_in_time: record.check_in_time
+                })
+            });
+
+            if (response.ok) {
+                await deleteFromStore('attendance_queue', record.id);
+            }
+        }
+
+        await updateOfflineQueueBadge();
+        console.log(`Uploaded ${pending.length} offline attendance records.`);
+    } catch (err) {
+        console.warn('Gagal upload antrian offline:', err.message);
+    }
+}
+
+// ── Update badge antrian offline ─────────────────────────────────────────────
+async function updateOfflineQueueBadge() {
+    if (!localDB) return;
+    const queue = await getAllFromStore('attendance_queue');
+    const pendingCount = queue.filter(q => q.status === 'pending').length;
+
+    if (pendingCount > 0) {
+        offlineBadge.textContent = `${pendingCount} Antrian`;
+        offlineBadge.style.display = 'inline-block';
+    } else {
+        offlineBadge.style.display = 'none';
+    }
+}
+
+// ── Window Online/Offline Event Listeners ─────────────────────────────────────
+window.addEventListener('online', () => {
+    setStatus('active', 'Terhubung (Online)');
+    uploadOfflineQueue();
+});
+window.addEventListener('offline', () => {
+    setStatus('warning', 'Terputus (Offline)');
+});
 
 // ── Handle recognition result ─────────────────────────────────────────────────
 function handleRecognition(match) {
