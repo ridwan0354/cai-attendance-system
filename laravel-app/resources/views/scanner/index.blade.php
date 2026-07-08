@@ -667,6 +667,7 @@ async function loadFaceApi() {
     try {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
@@ -1066,13 +1067,14 @@ async function syncDataFromServer(force = false) {
                         const blob = await photoRes.blob();
                         const img = await blobToImage(blob);
                         
-                        // Ekstrak face descriptor 128 dimensi
+                        // Ekstrak face descriptor 128 dimensi menggunakan SsdMobilenetv1 (sangat akurat untuk foto tunggal cropped)
                         const detection = await faceapi.detectSingleFace(
-                            img, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.30 })
+                            img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.40 })
                         ).withFaceLandmarks().withFaceDescriptor();
 
                         if (detection) {
                             const embedding = Array.from(detection.descriptor);
+                            console.log(`[Sync Wajah] Berhasil mengekstrak embedding untuk: ${sp.name}`);
                             await saveToStore('participants', {
                                 id: sp.id,
                                 name: sp.name,
@@ -1083,6 +1085,7 @@ async function syncDataFromServer(force = false) {
                                 embedding: embedding
                             });
                         } else {
+                            console.warn(`[Sync Wajah] Gagal mendeteksi wajah di foto peserta: ${sp.name}. Embedding diset null.`);
                             await saveToStore('participants', {
                                 id: sp.id,
                                 name: sp.name,
