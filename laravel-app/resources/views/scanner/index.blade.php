@@ -525,6 +525,14 @@
         </div>
     </div>
 </div>
+@endsection
+
+@push('scripts')
+<!-- face-api.js for browser-side face detection -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<!-- jsQR for browser-side QR Code decoding -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
 const SESSION_ID  = {{ $activeSession?->id ?? 'null' }};
