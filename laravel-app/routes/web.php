@@ -36,6 +36,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('participants.face-image');
     Route::post('participants/{participant}/verify-checkin', [ParticipantController::class, 'verifyCheckIn'])
         ->name('participants.verify-checkin');
+    Route::get('participants/{participant}/checkin-data', [ParticipantController::class, 'checkInData'])
+        ->name('participants.checkin-data');
     Route::post('participants/{participant}/save-checkin', [ParticipantController::class, 'saveCheckIn'])
         ->name('participants.save-checkin');
 

@@ -232,17 +232,8 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-@keyframes scan {
-    0% { top: 0%; }
-    50% { top: 100%; }
-    100% { top: 0%; }
-}
-.scanner-active-line {
-    animation: scan 2s linear infinite;
-}
-</style>
-
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 let checkInStream = null;
 let currentParticipantId = null;
@@ -250,6 +241,51 @@ let currentParticipantName = '';
 let verifiedConfidence = 0;
 let checkInScanInterval = null;
 let isVerifying = false;
+
+// State tambahan untuk Face-API lokal
+let localDB = null;
+let faceApiLoaded = false;
+let targetEmbedding = null;
+
+// IndexedDB Helper
+const DB_NAME = 'CaiAttendanceDB';
+const DB_VERSION = 1;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
+function getParticipantFromStore(id) {
+    return new Promise((resolve) => {
+        if (!localDB) return resolve(null);
+        const transaction = localDB.transaction('participants', 'readonly');
+        const store = transaction.objectStore('participants');
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+    });
+}
+
+// Inisialisasi Face-API di dashboard Admin secara background
+async function initFaceApi() {
+    try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
+        faceApiLoaded = true;
+        localDB = await openDB();
+        console.log("Face-API loaded successfully on Admin Dashboard.");
+    } catch (err) {
+        console.error("Gagal memuat Face-API lokal:", err);
+    }
+}
 
 // Audio feedback
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -272,6 +308,7 @@ async function openCheckInModal(id, name) {
     currentParticipantName = name;
     verifiedConfidence = 0;
     isVerifying = false;
+    targetEmbedding = null;
 
     // Reset UI
     document.getElementById('checkInTitle').textContent = `🎁 Registrasi: ${name}`;
@@ -285,6 +322,17 @@ async function openCheckInModal(id, name) {
 
     // Show modal
     document.getElementById('checkInModal').style.display = 'flex';
+
+    // Coba dapatkan target embedding lokal
+    if (!localDB) {
+        localDB = await openDB();
+    }
+    const participant = await getParticipantFromStore(id);
+    if (participant && participant.embedding) {
+        targetEmbedding = new Float32Array(participant.embedding);
+    } else {
+        console.warn(`Peserta ${name} tidak memiliki embedding wajah terdaftar.`);
+    }
 
     // Start camera
     await startCheckInCamera();
@@ -303,15 +351,15 @@ function updateStatusArea(text, type) {
     if (type === 'success') {
         area.style.color = 'var(--success)';
         area.style.borderColor = 'var(--success)';
-        area.style.background = 'var(--success-lt)';
+        area.style.background = 'var(--neutral-50)';
     } else if (type === 'danger') {
         area.style.color = 'var(--danger)';
         area.style.borderColor = 'var(--danger)';
-        area.style.background = 'var(--danger-lt)';
+        area.style.background = 'var(--neutral-50)';
     } else if (type === 'warning') {
         area.style.color = '#7a4f00';
         area.style.borderColor = 'var(--warning)';
-        area.style.background = 'var(--warning-lt)';
+        area.style.background = 'var(--neutral-50)';
     } else {
         area.style.color = 'var(--neutral-600)';
         area.style.borderColor = 'var(--neutral-200)';
@@ -329,7 +377,7 @@ async function startCheckInCamera() {
         video.srcObject = checkInStream;
         
         video.onloadedmetadata = () => {
-            updateStatusArea('🔍 Mencari wajah peserta...', 'warning');
+            updateStatusArea('🔍 Memindai wajah...', 'warning');
             startScanningLoop();
         };
     } catch (err) {
@@ -354,126 +402,116 @@ function startScanningLoop() {
         scannerLine.style.display = 'block';
         scannerLine.classList.add('scanner-active-line');
     }
-    checkInScanInterval = setInterval(verifyFace, 1500);
+    // Lakukan pemindaian wajah lokal berkala (tiap 1 detik)
+    checkInScanInterval = setInterval(verifyFaceLocal, 1000);
 }
 
-function stopScanningLoop() {
-    if (checkInScanInterval) {
-        clearInterval(checkInScanInterval);
-        checkInScanInterval = null;
-    }
-    const scannerLine = document.getElementById('checkInScannerLine');
-    if (scannerLine) {
-        scannerLine.style.display = 'none';
-        scannerLine.classList.remove('scanner-active-line');
-    }
-}
-
-async function verifyFace() {
+// ── Verifikasi Wajah 100% LOKAL di Dashboard Admin ───────────────────────────
+async function verifyFaceLocal() {
     if (isVerifying) return;
     
     const video = document.getElementById('checkInVideo');
-    const canvas = document.getElementById('checkInCanvas');
-    
     if (!video || video.readyState !== 4) return;
-    
-    isVerifying = true;
-    updateStatusArea('⚡ Memverifikasi wajah...', 'warning');
+    if (!faceApiLoaded) {
+        updateStatusArea('⚠️ Menunggu model AI termuat...', 'warning');
+        return;
+    }
 
-    const ctx = canvas.getContext('2d');
-    
-    // Scale down image to max width/height 640px to reduce payload size to ~30KB
-    const maxDim = 640;
-    let w = video.videoWidth;
-    let h = video.videoHeight;
-    if (w > maxDim || h > maxDim) {
-        if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
-        } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
-        }
+    if (!targetEmbedding) {
+        updateStatusArea('⚠️ Wajah peserta belum disinkronkan. Buka halaman scanner & klik Sync Wajah.', 'danger');
+        return;
     }
     
-    canvas.width = w;
-    canvas.height = h;
-    ctx.drawImage(video, 0, 0, w, h);
-    const base64Image = canvas.toDataURL('image/jpeg', 0.70).split(',')[1];
+    isVerifying = true;
 
     try {
-        const response = await fetch(`/admin/participants/${currentParticipantId}/verify-checkin`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            },
-            body: JSON.stringify({ image: base64Image })
-        });
+        // Deteksi wajah langsung dari video feed secara lokal
+        const detection = await faceapi.detectSingleFace(
+            video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35 })
+        ).withFaceLandmarks().withFaceDescriptor();
 
-        const data = await response.json();
+        if (detection) {
+            // Hitung Euclidean Distance secara lokal
+            const distance = faceapi.euclideanDistance(detection.descriptor, targetEmbedding);
+            console.log(`[Local Verify] Jarak Euclidean: ${distance.toFixed(3)}`);
 
-        if (response.ok && data.success) {
-            if (data.verified) {
+            // Threshold: 0.45 (persis seperti di scanner)
+            if (distance <= 0.45) {
                 playSuccessSound();
                 stopScanningLoop();
-                
-                verifiedConfidence = data.confidence;
-                document.getElementById('verifiedConfidence').textContent = `${data.confidence}% cocok`;
-                document.getElementById('checkInNotes').value = data.notes || '';
-                
-                const statusText = document.getElementById('registeredStatusText');
-                if (data.registered_at) {
-                    statusText.innerHTML = `✅ Terdaftar: <span style="font-weight:600;">${data.registered_at}</span>`;
+
+                // Hitung persentase confidence kecocokan wajah
+                verifiedConfidence = Math.round((1 - distance) * 100);
+
+                // Tampilkan loading overlay sementara mengambil data supplies
+                document.getElementById('checkInLoadingOverlay').style.display = 'flex';
+                document.getElementById('checkInLoadingText').textContent = 'Mengambil data perlengkapan...';
+
+                // Ambil daftar barang checklist tanpa deteksi wajah di server
+                const response = await fetch(`/admin/participants/${currentParticipantId}/checkin-data`);
+                const data = await response.json();
+
+                document.getElementById('checkInLoadingOverlay').style.display = 'none';
+
+                if (response.ok && data.success) {
+                    document.getElementById('verifiedConfidence').textContent = `${verifiedConfidence}% cocok`;
+                    document.getElementById('checkInNotes').value = data.notes || '';
+                    
+                    const statusText = document.getElementById('registeredStatusText');
+                    if (data.registered_at) {
+                        statusText.innerHTML = `✅ Terdaftar: <span style="font-weight:600;">${data.registered_at}</span>`;
+                    } else {
+                        statusText.textContent = 'Belum pernah registrasi';
+                    }
+
+                    const container = document.getElementById('suppliesChecklistContainer');
+                    container.innerHTML = '';
+                    
+                    if (data.supplies && data.supplies.length > 0) {
+                        data.supplies.forEach(item => {
+                            const div = document.createElement('div');
+                            div.style.display = 'flex';
+                            div.style.alignItems = 'center';
+                            div.style.gap = '0.5rem';
+                            div.style.fontSize = '0.875rem';
+
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.value = item.id;
+                            checkbox.checked = item.received;
+                            checkbox.id = `supply_check_${item.id}`;
+                            checkbox.style.cursor = 'pointer';
+
+                            const label = document.createElement('label');
+                            label.htmlFor = `supply_check_${item.id}`;
+                            label.textContent = item.name;
+                            label.style.cursor = 'pointer';
+                            label.style.fontWeight = '500';
+
+                            div.appendChild(checkbox);
+                            div.appendChild(label);
+                            container.appendChild(div);
+                        });
+                    } else {
+                        container.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:0.5rem;">Tidak ada jenis barang registrasi. Hubungi Admin.</div>';
+                    }
+
+                    document.getElementById('checkInStep1').style.display = 'none';
+                    document.getElementById('checkInStep2').style.display = 'block';
+                    stopCheckInCamera();
                 } else {
-                    statusText.textContent = 'Belum pernah registrasi';
+                    updateStatusArea('⚠️ Gagal mengambil data perlengkapan. Memindai ulang...', 'danger');
+                    startScanningLoop();
                 }
-
-                const container = document.getElementById('suppliesChecklistContainer');
-                container.innerHTML = '';
-                
-                if (data.supplies && data.supplies.length > 0) {
-                    data.supplies.forEach(item => {
-                        const div = document.createElement('div');
-                        div.style.display = 'flex';
-                        div.style.alignItems = 'center';
-                        div.style.gap = '0.5rem';
-                        div.style.fontSize = '0.875rem';
-
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.value = item.id;
-                        checkbox.checked = item.received;
-                        checkbox.id = `supply_check_${item.id}`;
-                        checkbox.style.cursor = 'pointer';
-
-                        const label = document.createElement('label');
-                        label.htmlFor = `supply_check_${item.id}`;
-                        label.textContent = item.name;
-                        label.style.cursor = 'pointer';
-                        label.style.fontWeight = '500';
-
-                        div.appendChild(checkbox);
-                        div.appendChild(label);
-                        container.appendChild(div);
-                    });
-                } else {
-                    container.innerHTML = '<div style="color:var(--neutral-400);text-align:center;font-size:0.8rem;padding:0.5rem;">Tidak ada jenis barang registrasi. Hubungi Admin.</div>';
-                }
-
-                document.getElementById('checkInStep1').style.display = 'none';
-                document.getElementById('checkInStep2').style.display = 'block';
-                stopCheckInCamera();
             } else {
-                updateStatusArea('🔍 Wajah tidak cocok/terdeteksi. Memindai ulang...', 'danger');
+                updateStatusArea('🔍 Wajah tidak cocok. Arahkan posisi wajah dengan benar.', 'danger');
             }
         } else {
-            updateStatusArea('⚠️ Gagal menghubungi server verifikasi. Memindai ulang...', 'danger');
+            updateStatusArea('🔍 Wajah tidak terdeteksi. Silakan posisikan wajah di depan kamera.', 'danger');
         }
     } catch (err) {
-        console.error(err);
-        updateStatusArea('⚠️ Gangguan koneksi. Memindai ulang...', 'danger');
+        console.error("Local face verify error:", err);
+        updateStatusArea('⚠️ Gangguan proses verifikasi lokal.', 'danger');
     } finally {
         isVerifying = false;
     }
@@ -531,6 +569,9 @@ async function submitCheckIn(event) {
         saveBtn.textContent = '💾 Simpan & Selesai';
     }
 }
+
+// Jalankan load Face-API background
+initFaceApi();
 </script>
 @endpush
 @endsection

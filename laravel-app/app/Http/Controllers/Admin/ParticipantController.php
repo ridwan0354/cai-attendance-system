@@ -252,4 +252,25 @@ class ParticipantController extends Controller
             'message' => 'Registrasi check-in berhasil disimpan!' . ($attendanceCreated ? ' Kehadiran sesi aktif otomatis tercatat.' : ''),
         ]);
     }
+
+    /**
+     * Retrieve supplies and check-in metadata for local browser verification.
+     */
+    public function checkInData(Participant $participant)
+    {
+        $supplies = \App\Models\Supply::orderBy('name')->get()->map(function($supply) use ($participant) {
+            return [
+                'id' => $supply->id,
+                'name' => $supply->name,
+                'received' => $participant->supplies()->where('supply_id', $supply->id)->exists(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'supplies' => $supplies,
+            'notes' => $participant->registration_notes,
+            'registered_at' => $participant->registered_at ? $participant->registered_at->format('d M Y H:i') : null,
+        ]);
+    }
 }
