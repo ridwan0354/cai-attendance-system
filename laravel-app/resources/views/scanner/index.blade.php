@@ -778,7 +778,50 @@ async function processQRCheckIn(qrCode) {
                 participant_id: data.match.participant_id,
                 participant_name: data.participant_name,
                 group_name: data.group_name,
-                group_color: data.gro// ── Detection Loop (Real-time Single Pass) ────────────────────────────────────
+                group_color: data.group_color,
+                method: 'qr'
+            });
+            
+            setTimeout(() => {
+                isProcessingQR = false;
+            }, 3500);
+        } else {
+            if (data.message) {
+                showToast(`❌ ${data.message}`, 'error');
+            }
+            setTimeout(() => {
+                isProcessingQR = false;
+            }, 2000);
+        }
+    } catch (err) {
+        console.error(err);
+        setTimeout(() => {
+            isProcessingQR = false;
+        }, 2000);
+    }
+}
+
+function toggleScanning() {
+    isScanning = !isScanning;
+    const btn = document.getElementById('toggleScanBtn');
+    if (isScanning) {
+        startScanning();
+        btn.textContent = '⏸ Pause Scan';
+        btn.className = 'ctrl-btn primary';
+        if (!SESSION_ID) {
+            setStatus('warning', 'Sesi tidak aktif! Aktifkan sesi di panel Admin.');
+        } else {
+            setStatus('active', 'Siap memindai');
+        }
+    } else {
+        stopScanning();
+        btn.textContent = '▶ Resume Scan';
+        btn.className = 'ctrl-btn danger';
+        setStatus('loading', 'Scan dijeda');
+    }
+}
+
+// ── Detection Loop (Real-time Single Pass) ────────────────────────────────────
 async function detectionLoop() {
     if (!isDetecting) return;
 
