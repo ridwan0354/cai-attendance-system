@@ -421,6 +421,7 @@
                 <span>Scanner Station</span>
             </div>
             <div class="status-indicator">
+                <span id="offlineQueueBadge" style="display: none; background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; margin-right: 8px; font-weight: bold; box-shadow: 0 0 6px rgba(255, 152, 0, 0.4);">0 Antrian</span>
                 <div class="status-dot loading" id="statusDot"></div>
                 <span id="statusText">Memulai kamera...</span>
             </div>
@@ -473,6 +474,25 @@
             <div class="confidence" id="popupConfidence">Confidence: 95.2%</div>
         </div>
 
+        <!-- Sync Progress Modal -->
+        <div id="syncProgressModal" style="display: none; position: absolute; inset: 0; background: rgba(10, 14, 26, 0.95); z-index: 50; align-items: center; justify-content: center; flex-direction: column; color: white;">
+            <div style="background: #161e35; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2rem; width: 85%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem; animation: spin-logo 2s linear infinite;">🔄</div>
+                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #fff;">Sinkronisasi Wajah Lokal</h3>
+                <p id="syncProgressText" style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 1.25rem;">Mengunduh data peserta...</p>
+                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem;">
+                    <div id="syncProgressBar" style="width: 0%; height: 100%; background: #007aff; transition: width 0.2s;"></div>
+                </div>
+                <span id="syncProgressPercent" style="font-size: 0.8rem; color: #00e676; font-weight: bold;">0%</span>
+            </div>
+        </div>
+        <style>
+            @keyframes spin-logo {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+
         <!-- Bottom bar (floats above bottom panel) -->
         <div class="scanner-overlay-bottom">
             <div class="face-count-badge" id="faceCountBadge">👤 0 wajah terdeteksi</div>
@@ -490,6 +510,9 @@
                 <button class="ctrl-btn primary" id="toggleScanBtn" onclick="toggleScanning()">
                     ⏸ Pause Scan
                 </button>
+                <button class="ctrl-btn warning" id="syncWajahBtn" onclick="syncDataFromServer(true)">
+                    🔄 Sync Wajah
+                </button>
                 <button class="ctrl-btn danger" onclick="openManualEntry()">
                     ✏️ Manual
                 </button>
@@ -502,18 +525,11 @@
         </div>
     </div>
 </div>
-@endsection
-
-@push('scripts')
-<!-- face-api.js for browser-side face detection -->
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<!-- jsQR for browser-side QR Code decoding -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
 const SESSION_ID  = {{ $activeSession?->id ?? 'null' }};
 const CSRF_TOKEN  = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+const API_KEY     = "{{ $apiKey }}";
 
 // ── State ────────────────────────────────────────────────────────────────────
 let isScanning    = true;
@@ -524,6 +540,8 @@ let seenParticipants = new Set();
 let trackedFaces  = [];
 let frameCount    = 0;
 let lastFpsTime   = Date.now();
+let localDB       = null;
+let faceMatcher   = null;
 
 // ── DOM ──────────────────────────────────────────────────────────────────────
 const video         = document.getElementById('videoFeed');
@@ -535,6 +553,62 @@ const faceCount     = document.getElementById('faceCountBadge');
 const liveFeed      = document.getElementById('liveFeed');
 const popup         = document.getElementById('recognitionPopup');
 const flash         = document.getElementById('recognitionFlash');
+const offlineBadge  = document.getElementById('offlineQueueBadge');
+const syncModal     = document.getElementById('syncProgressModal');
+const syncText      = document.getElementById('syncProgressText');
+const syncBar       = document.getElementById('syncProgressBar');
+const syncPercent   = document.getElementById('syncProgressPercent');
+
+// ── IndexedDB Helper ──────────────────────────────────────────────────────────
+const DB_NAME = 'CaiAttendanceDB';
+const DB_VERSION = 1;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('participants')) {
+                db.createObjectStore('participants', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('attendance_queue')) {
+                db.createObjectStore('attendance_queue', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
+function getAllFromStore(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = localDB.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function saveToStore(storeName, data) {
+    return new Promise((resolve, reject) => {
+        const transaction = localDB.transaction(storeName, 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.put(data);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function deleteFromStore(storeName, key) {
+    return new Promise((resolve, reject) => {
+        const transaction = localDB.transaction(storeName, 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
 
 // ── Audio feedback ───────────────────────────────────────────────────────────
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -579,15 +653,24 @@ async function initCamera() {
     }
 }
 
-// ── Load face-api.js models (for browser-side detection) ─────────────────────
+// ── Load face-api.js models (Tiny Detector + Landmarks + Recognition) ──────
 async function loadFaceApi() {
-    setStatus('loading', 'Memuat model deteksi...');
+    setStatus('loading', 'Memuat model AI...');
     try {
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
         await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
         faceApiLoaded = true;
+        
+        localDB = await openDB();
+        await reloadFaceMatcher();
+        await updateOfflineQueueBadge();
+        await syncDataFromServer();
+        await uploadOfflineQueue();
+
         if (!SESSION_ID) {
             setStatus('warning', 'Sesi tidak aktif! Aktifkan sesi di panel Admin.');
         } else {

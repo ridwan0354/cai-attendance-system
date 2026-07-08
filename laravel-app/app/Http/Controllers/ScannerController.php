@@ -15,7 +15,8 @@ class ScannerController extends Controller
     {
         $activeSession = Session::getActive();
         $faceServiceHealthy = $this->faceService->isHealthy();
+        $apiKey = config('mobile.api_key', env('MOBILE_API_KEY', ''));
 
-        return view('scanner.index', compact('activeSession', 'faceServiceHealthy'));
+        return view('scanner.index', compact('activeSession', 'faceServiceHealthy', 'apiKey'));
     }
 }
