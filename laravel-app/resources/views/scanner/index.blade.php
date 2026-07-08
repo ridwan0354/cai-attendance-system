@@ -778,58 +778,16 @@ async function processQRCheckIn(qrCode) {
                 participant_id: data.match.participant_id,
                 participant_name: data.participant_name,
                 group_name: data.group_name,
-                group_color: data.group_color,
-                method: 'qr'
-            });
-            
-            setTimeout(() => {
-                isProcessingQR = false;
-            }, 3500);
-        } else {
-            if (data.message) {
-                showToast(`❌ ${data.message}`, 'error');
-            }
-            setTimeout(() => {
-                isProcessingQR = false;
-            }, 2000);
-        }
-    } catch (err) {
-        console.error(err);
-        setTimeout(() => {
-            isProcessingQR = false;
-        }, 2000);
-    }
-}
-
-function toggleScanning() {
-    isScanning = !isScanning;
-    const btn = document.getElementById('toggleScanBtn');
-    if (isScanning) {
-        startScanning();
-        btn.textContent = '⏸ Pause Scan';
-        btn.className = 'ctrl-btn primary';
-        if (!SESSION_ID) {
-            setStatus('warning', 'Sesi tidak aktif! Aktifkan sesi di panel Admin.');
-        } else {
-            setStatus('active', 'Siap memindai');
-        }
-    } else {
-        stopScanning();
-        btn.textContent = '▶ Resume Scan';
-        btn.className = 'ctrl-btn danger';
-        setStatus('loading', 'Scan dijeda');
-    }
-}
-
-// ── Detection Loop ────────────────────────────────────────────────────────────
+                group_color: data.gro// ── Detection Loop (Real-time Single Pass) ────────────────────────────────────
 async function detectionLoop() {
     if (!isDetecting) return;
 
     if (isScanning && faceApiLoaded && video.readyState === 4) {
         try {
+            // Deteksi wajah, landmarks, dan descriptors sekaligus dalam 1x jalan di video feed
             const detections = await faceapi.detectAllFaces(
                 video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35 })
-            );
+            ).withFaceLandmarks().withFaceDescriptors();
             
             faceCount.textContent = `👤 ${detections.length} wajah terdeteksi`;
             trackDetections(detections);
@@ -838,20 +796,20 @@ async function detectionLoop() {
         }
     }
     
-    // Run detection loop again after 150ms to save CPU
-    setTimeout(detectionLoop, 150);
+    // Jalankan loop lagi setelah 100ms
+    setTimeout(detectionLoop, 100);
 }
 
-// ── Track detections across frames ────────────────────────────────────────────
+// ── Track detections & Match Wajah secara Instan ──────────────────────────────
 function trackDetections(detections) {
     const now = Date.now();
 
     detections.forEach(det => {
-        const { x, y, width, height } = det.box;
+        const { x, y, width, height } = det.detection.box;
         const cx = x + width / 2;
         const cy = y + height / 2;
 
-        // Find closest tracked face
+        // Cari wajah terlacak terdekat
         let closestFace = null;
         let minDistance = Infinity;
 
@@ -865,13 +823,19 @@ function trackDetections(detections) {
             }
         });
 
-        // Threshold for matching: 90px center-to-center
+        // Threshold pencarian wajah terdekat: 90px
         if (closestFace && minDistance < 90) {
-            // Update existing face
+            // Perbarui posisi kotak wajah
             closestFace.box = { x, y, width, height };
             closestFace.lastSeen = now;
+
+            // Jika wajah terlacak masih scanning / unknown, coba cocokkan kembali
+            if ((closestFace.status === 'scanning' || closestFace.status === 'unknown') && (now - closestFace.lastSentTime > 1500)) {
+                closestFace.lastSentTime = now;
+                matchFaceLocally(closestFace, det.descriptor);
+            }
         } else {
-            // Register new face
+            // Daftarkan wajah baru terlacak
             const newId = 'face_' + Math.random().toString(36).substr(2, 9);
             const newFace = {
                 id: newId,
@@ -881,27 +845,89 @@ function trackDetections(detections) {
                 group: '',
                 color: '',
                 lastSeen: now,
-                lastSentTime: 0
+                lastSentTime: now
             };
             trackedFaces.push(newFace);
 
-            // Trigger recognition immediately!
-            recognizeFace(newFace);
+            // Langsung cocokkan wajah baru tersebut menggunakan descriptor frame ini!
+            matchFaceLocally(newFace, det.descriptor);
         }
     });
 
-    // For existing faces, if they are 'unknown' or 'failed' and haven't been checked for 4 seconds, retry
+    // Reset status wajah terlacak yang unknown ke scanning jika terdeteksi lama
     trackedFaces.forEach(face => {
         if ((face.status === 'unknown' || face.status === 'failed') && (now - face.lastSentTime > 4000)) {
             face.status = 'scanning';
-            recognizeFace(face);
         }
     });
 
-    // Remove faces not seen for > 1.2 seconds
+    // Hapus wajah terlacak jika tidak terlihat lagi setelah 1.2 detik
     trackedFaces = trackedFaces.filter(face => {
         return (now - face.lastSeen) < 1200;
     });
+}
+
+// ── Pencocokan Wajah Lokal Instan menggunakan FaceMatcher ─────────────────────
+async function matchFaceLocally(face, descriptor) {
+    if (!SESSION_ID || !faceMatcher || !descriptor) return;
+
+    face.status = 'processing';
+
+    try {
+        const match = faceMatcher.findBestMatch(descriptor);
+        
+        // Cari wajah terlacak saat ini untuk memperbarui statusnya
+        const currentFace = trackedFaces.find(f => f.id === face.id);
+        if (!currentFace) return;
+
+        if (match.label !== 'unknown') {
+            const participantId = parseInt(match.label, 10);
+            const participant = await getParticipantFromStore(participantId);
+
+            if (!participant) {
+                currentFace.status = 'unknown';
+                return;
+            }
+
+            const confidence = Math.round((1 - match.distance) * 100);
+
+            // Cek duplikasi absensi
+            if (seenParticipants.has(participantId)) {
+                currentFace.status = 'duplicate';
+                currentFace.name = participant.name;
+                return;
+            }
+
+            // Catat absensi secara lokal & upload background
+            const checkedTime = new Date().toISOString();
+            await recordAttendanceLocally(participantId, SESSION_ID, checkedTime, confidence);
+
+            // Perbarui status wajah terlacak
+            currentFace.status = 'recognized';
+            currentFace.name = participant.name;
+            currentFace.group = participant.group_name;
+            currentFace.color = participant.group_color;
+
+            // Berikan feedback visual & suara sukses secara instan!
+            handleRecognition({
+                participant_id: participantId,
+                participant_name: participant.name,
+                group_name: participant.group_name,
+                group_color: participant.group_color,
+                confidence_score: confidence,
+                method: 'face',
+                check_in_time: new Date().toLocaleTimeString('id-ID')
+            });
+        } else {
+            currentFace.status = 'unknown';
+        }
+    } catch (err) {
+        console.warn('Local match error:', err.message);
+        const currentFace = trackedFaces.find(f => f.id === face.id);
+        if (currentFace) {
+            currentFace.status = 'failed';
+        }
+    }
 }
 
 // ── Load Face Matcher dari IndexedDB ──────────────────────────────────────────
@@ -920,7 +946,6 @@ async function reloadFaceMatcher() {
     });
 
     if (labeledDescriptors.length > 0) {
-        // Set threshold jarak kecocokan wajah = 0.50 (semakin kecil, semakin ketat)
         faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.50);
         console.log(`FaceMatcher loaded with ${labeledDescriptors.length} participants`);
     } else {
@@ -1083,103 +1108,6 @@ function blobToImage(blob) {
         img.onerror = (e) => reject(e);
         img.src = url;
     });
-}
-
-// ── Face recognition request (100% LOKAL di Web Browser Client) ──────────────
-async function recognizeFace(face) {
-    if (!SESSION_ID || !isScanning) return;
-    if (!faceMatcher) {
-        console.warn('FaceMatcher belum siap. Lewati deteksi lokal.');
-        face.status = 'failed';
-        return;
-    }
-    
-    // Mark as processing
-    face.status = 'processing';
-    face.lastSentTime = Date.now();
-    
-    // Crop face locally from video feed
-    const { x, y, width, height } = face.box;
-    const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = 160;
-    cropCanvas.height = 160;
-    const cropCtx = cropCanvas.getContext('2d');
-
-    // Add 15% padding around the face box
-    const padX = width * 0.15;
-    const padY = height * 0.15;
-    const sx = Math.max(0, x - padX);
-    const sy = Math.max(0, y - padY);
-    const sw = Math.min(video.videoWidth - sx, width + padX * 2);
-    const sh = Math.min(video.videoHeight - sy, height + padY * 2);
-
-    try {
-        cropCtx.drawImage(video, sx, sy, sw, sh, 0, 0, 160, 160);
-
-        // 1. Ekstrak descriptor wajah secara lokal menggunakan face-api.js
-        const detection = await faceapi.detectSingleFace(
-            cropCanvas, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35 })
-        ).withFaceLandmarks().withFaceDescriptor();
-
-        const currentFace = trackedFaces.find(f => f.id === face.id);
-        if (!currentFace) return;
-
-        if (!detection) {
-            currentFace.status = 'scanning'; // Retry di frame berikutnya jika tidak terdeteksi
-            return;
-        }
-
-        // 2. Bandingkan dengan model matcher lokal kita
-        const match = faceMatcher.findBestMatch(detection.descriptor);
-        
-        if (match.label !== 'unknown') {
-            const participantId = parseInt(match.label, 10);
-            const participant = await getParticipantFromStore(participantId);
-
-            if (!participant) {
-                currentFace.status = 'unknown';
-                return;
-            }
-
-            const confidence = Math.round((1 - match.distance) * 100);
-
-            // Cek duplikasi absensi lokal
-            if (seenParticipants.has(participantId)) {
-                currentFace.status = 'duplicate';
-                currentFace.name = participant.name;
-                return;
-            }
-
-            // Catat absensi secara lokal
-            const checkedTime = new Date().toISOString();
-            await recordAttendanceLocally(participantId, SESSION_ID, checkedTime, confidence);
-
-            // Mark as recognized
-            currentFace.status = 'recognized';
-            currentFace.name = participant.name;
-            currentFace.group = participant.group_name;
-            currentFace.color = participant.group_color;
-
-            // UI feedback
-            handleRecognition({
-                participant_id: participantId,
-                participant_name: participant.name,
-                group_name: participant.group_name,
-                group_color: participant.group_color,
-                confidence_score: confidence,
-                method: 'face',
-                check_in_time: new Date().toLocaleTimeString('id-ID')
-            });
-        } else {
-            currentFace.status = 'unknown';
-        }
-    } catch (err) {
-        console.warn('Local recognition failed:', err.message);
-        const currentFace = trackedFaces.find(f => f.id === face.id);
-        if (currentFace) {
-            currentFace.status = 'failed';
-        }
-    }
 }
 
 // ── Mencatat absensi di IndexedDB & Mencoba kirim ke server ─────────────────
