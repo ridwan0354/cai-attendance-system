@@ -10,12 +10,100 @@ use Illuminate\Support\Facades\Log;
 
 class FonnteWhatsAppService
 {
-    private string $apiKey;
+    private string $gateway;
+    private string $fonnteApiKey;
     private string $apiUrl = 'https://api.fonnte.com/send';
+    private string $grooviteApiUrl;
+    private string $grooviteWaKey;
 
     public function __construct()
     {
-        $this->apiKey = (string) config('services.fonnte.api_key', '');
+        $this->gateway = (string) \App\Models\Setting::getVal('wa_gateway', 'fonnte');
+        $this->fonnteApiKey = (string) \App\Models\Setting::getVal('fonnte_api_key', '');
+        $this->grooviteApiUrl = (string) \App\Models\Setting::getVal('groovite_api_url', 'https://waa.galipatsistem.com/api');
+        $this->grooviteWaKey = (string) \App\Models\Setting::getVal('groovite_wa_key', '');
+    }
+
+    /**
+     * Send message using the active gateway.
+     * Returns ['success' => bool, 'message_id' => ?string, 'error' => ?string]
+     */
+    public function sendMessage(string $phone, string $message): array
+    {
+        $normalizedPhone = $this->normalizePhone($phone);
+
+        if ($this->gateway === 'groovite') {
+            if (empty($this->grooviteWaKey)) {
+                return ['success' => false, 'error' => 'API Key/waKey Groovite belum dikonfigurasi.'];
+            }
+
+            $url = rtrim($this->grooviteApiUrl, '/') . '/send-message';
+            $jid = $normalizedPhone . '@s.whatsapp.net';
+
+            try {
+                $response = Http::post($url, [
+                    'waKey' => $this->grooviteWaKey,
+                    'id' => $jid,
+                    'text' => $message,
+                    'userId' => null,
+                ]);
+
+                $responseData = $response->json();
+
+                if ($response->successful()) {
+                    $msgId = $responseData['id'] ?? $responseData['data']['id'] ?? $responseData['message_id'] ?? null;
+                    return [
+                        'success' => true,
+                        'message_id' => $msgId,
+                    ];
+                }
+
+                return [
+                    'success' => false,
+                    'error' => json_encode($responseData) ?: 'HTTP status ' . $response->status(),
+                ];
+
+            } catch (\Exception $e) {
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        } else {
+            // Default to Fonnte
+            if (empty($this->fonnteApiKey)) {
+                return ['success' => false, 'error' => 'API Key Fonnte belum dikonfigurasi.'];
+            }
+
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => $this->fonnteApiKey,
+                ])->post($this->apiUrl, [
+                    'target'  => $normalizedPhone,
+                    'message' => $message,
+                ]);
+
+                $responseData = $response->json();
+
+                if ($response->successful() && ($responseData['status'] ?? false)) {
+                    return [
+                        'success' => true,
+                        'message_id' => $responseData['id'] ?? null,
+                    ];
+                }
+
+                return [
+                    'success' => false,
+                    'error' => $responseData['reason'] ?? json_encode($responseData),
+                ];
+
+            } catch (\Exception $e) {
+                return [
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
     }
 
     /**
@@ -23,11 +111,6 @@ class FonnteWhatsAppService
      */
     public function sendAttendanceReport(Group $group, Session $session): bool
     {
-        if (empty($this->apiKey)) {
-            Log::error('Fonnte API key is not configured');
-            return false;
-        }
-
         $message = $this->buildReportMessage($group, $session);
         $phone = $this->normalizePhone($group->pembina_phone);
 
@@ -40,40 +123,24 @@ class FonnteWhatsAppService
             'status'       => 'pending',
         ]);
 
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => $this->apiKey,
-            ])->post($this->apiUrl, [
-                'target'  => $phone,
-                'message' => $message,
-            ]);
+        $res = $this->sendMessage($phone, $message);
 
-            $responseData = $response->json();
-
-            if ($response->successful() && ($responseData['status'] ?? false)) {
-                $log->update([
-                    'status'             => 'sent',
-                    'fonnte_message_id'  => $responseData['id'] ?? null,
-                    'sent_at'            => now(),
-                ]);
-                Log::info("WA sent to {$group->pembina_name} ({$phone})");
-                return true;
-            }
-
+        if ($res['success']) {
             $log->update([
-                'status'        => 'failed',
-                'error_message' => json_encode($responseData),
+                'status'             => 'sent',
+                'fonnte_message_id'  => $res['message_id'] ?? null,
+                'sent_at'            => now(),
             ]);
-            return false;
-
-        } catch (\Exception $e) {
-            $log->update([
-                'status'        => 'failed',
-                'error_message' => $e->getMessage(),
-            ]);
-            Log::error('Fonnte send failed', ['error' => $e->getMessage()]);
-            return false;
+            Log::info("WA sent to {$group->pembina_name} ({$phone})");
+            return true;
         }
+
+        $log->update([
+            'status'        => 'failed',
+            'error_message' => $res['error'] ?? 'Unknown error',
+        ]);
+        Log::error('WA send attendance report failed', ['error' => $res['error'] ?? 'Unknown error']);
+        return false;
     }
 
     /**
@@ -81,11 +148,6 @@ class FonnteWhatsAppService
      */
     public function sendCheckInConfirmation(\App\Models\Attendance $attendance): bool
     {
-        if (empty($this->apiKey)) {
-            Log::error('Fonnte API key is not configured');
-            return false;
-        }
-
         $participant = $attendance->participant;
         if (!$participant || empty($participant->phone)) {
             Log::warning("No phone number found for participant {$participant?->id}. Skipping WA confirmation.");
@@ -112,28 +174,15 @@ class FonnteWhatsAppService
         $message .= "Terima kasih atas partisipasinya!\n\n";
         $message .= "_Pesan otomatis - CAI Lombok 2026_";
 
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => $this->apiKey,
-            ])->post($this->apiUrl, [
-                'target'  => $phone,
-                'message' => $message,
-            ]);
+        $res = $this->sendMessage($phone, $message);
 
-            $responseData = $response->json();
-
-            if ($response->successful() && ($responseData['status'] ?? false)) {
-                Log::info("WA Check-in confirmation sent to participant {$participant->name} ({$phone})");
-                return true;
-            }
-
-            Log::error("Failed to send WA Check-in confirmation to {$phone}", ['response' => $responseData]);
-            return false;
-
-        } catch (\Exception $e) {
-            Log::error('Fonnte send check-in confirmation failed', ['error' => $e->getMessage()]);
-            return false;
+        if ($res['success']) {
+            Log::info("WA Check-in confirmation sent to participant {$participant->name} ({$phone})");
+            return true;
         }
+
+        Log::error("Failed to send WA Check-in confirmation to {$phone}", ['error' => $res['error'] ?? 'Unknown error']);
+        return false;
     }
 
     /**
@@ -205,35 +254,27 @@ class FonnteWhatsAppService
      */
     public function sendGenericMessage(string $phone, string $message, ?string $overrideKey = null): array
     {
-        $key = $overrideKey ?? $this->apiKey;
-        if (empty($key)) {
-            return ['success' => false, 'message' => 'API Key Fonnte belum dikonfigurasi.'];
-        }
-
-        $target = $this->normalizePhone($phone);
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => $key,
-            ])->post($this->apiUrl, [
-                'target'  => $target,
-                'message' => $message,
-            ]);
-
-            $responseData = $response->json();
-
-            if ($response->successful() && ($responseData['status'] ?? false)) {
-                return ['success' => true, 'message' => 'Pesan berhasil terkirim.'];
+        if ($overrideKey) {
+            if ($this->gateway === 'groovite') {
+                $tempApiKey = $this->grooviteWaKey;
+                $this->grooviteWaKey = $overrideKey;
+                $res = $this->sendMessage($phone, $message);
+                $this->grooviteWaKey = $tempApiKey;
+            } else {
+                $tempApiKey = $this->fonnteApiKey;
+                $this->fonnteApiKey = $overrideKey;
+                $res = $this->sendMessage($phone, $message);
+                $this->fonnteApiKey = $tempApiKey;
             }
-
-            return [
-                'success' => false,
-                'message' => $responseData['reason'] ?? json_encode($responseData)
-            ];
-
-        } catch (\Exception $e) {
-            return ['success' => false, 'message' => $e->getMessage()];
+        } else {
+            $res = $this->sendMessage($phone, $message);
         }
+
+        if ($res['success']) {
+            return ['success' => true, 'message' => 'Pesan berhasil terkirim.'];
+        }
+
+        return ['success' => false, 'message' => $res['error'] ?? 'Unknown error'];
     }
 
     /**
@@ -255,3 +296,4 @@ class FonnteWhatsAppService
         return $phone;
     }
 }
+

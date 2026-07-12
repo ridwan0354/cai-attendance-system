@@ -17,8 +17,12 @@ class SettingController extends Controller
             return view('admin.settings.unlock');
         }
 
+        $waGateway = Setting::getVal('wa_gateway', 'fonnte');
         $fonnteApiKey = Setting::getVal('fonnte_api_key', '');
-        return view('admin.settings.index', compact('fonnteApiKey'));
+        $grooviteApiUrl = Setting::getVal('groovite_api_url', 'https://waa.galipatsistem.com/api');
+        $grooviteWaKey = Setting::getVal('groovite_wa_key', '');
+
+        return view('admin.settings.index', compact('waGateway', 'fonnteApiKey', 'grooviteApiUrl', 'grooviteWaKey'));
     }
 
     /**
@@ -48,10 +52,16 @@ class SettingController extends Controller
         }
 
         $validated = $request->validate([
+            'wa_gateway' => 'required|string|in:fonnte,groovite',
             'fonnte_api_key' => 'nullable|string|max:255',
+            'groovite_api_url' => 'nullable|string|max:255',
+            'groovite_wa_key' => 'nullable|string|max:255',
         ]);
 
+        Setting::setVal('wa_gateway', $validated['wa_gateway']);
         Setting::setVal('fonnte_api_key', $validated['fonnte_api_key'] ?? '');
+        Setting::setVal('groovite_api_url', $validated['groovite_api_url'] ?? 'https://waa.galipatsistem.com/api');
+        Setting::setVal('groovite_wa_key', $validated['groovite_wa_key'] ?? '');
 
         return redirect()->route('admin.settings.index')->with('success', 'Pengaturan berhasil disimpan.');
     }
@@ -78,14 +88,22 @@ class SettingController extends Controller
             'test_phone' => 'required|string',
         ]);
 
-        $apiKey = Setting::getVal('fonnte_api_key', '');
-        if (empty($apiKey)) {
-            return back()->with('error', 'Token Fonnte belum disimpan. Silakan simpan token terlebih dahulu.');
+        $gateway = Setting::getVal('wa_gateway', 'fonnte');
+        if ($gateway === 'groovite') {
+            $apiKey = Setting::getVal('groovite_wa_key', '');
+            if (empty($apiKey)) {
+                return back()->with('error', 'Token Groovite belum disimpan. Silakan simpan token terlebih dahulu.');
+            }
+        } else {
+            $apiKey = Setting::getVal('fonnte_api_key', '');
+            if (empty($apiKey)) {
+                return back()->with('error', 'Token Fonnte belum disimpan. Silakan simpan token terlebih dahulu.');
+            }
         }
 
         $message = "✅ *Tes Koneksi CAI LOMBOK 2026*\n\n";
         $message .= "Halo! Ini adalah pesan tes dari Aplikasi Absensi Face Recognition CAI Lombok 2026.\n\n";
-        $message .= "Jika Anda menerima pesan ini, artinya token API Fonnte Anda sudah berhasil terhubung dengan benar! 🚀";
+        $message .= "Jika Anda menerima pesan ini, artinya token API " . ($gateway === 'groovite' ? 'Groovite' : 'Fonnte') . " Anda sudah berhasil terhubung dengan benar! 🚀";
 
         $res = $waService->sendGenericMessage($validated['test_phone'], $message);
 

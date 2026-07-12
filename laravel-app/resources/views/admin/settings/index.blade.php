@@ -37,18 +37,48 @@
         <!-- Left: Configuration Form -->
         <div class="card" style="border: 1px solid var(--neutral-200); box-shadow: var(--shadow-sm); border-radius: 8px; overflow: hidden; background: white;">
             <div class="card-header" style="background: var(--neutral-50); padding: 1rem 1.25rem; border-bottom: 1px solid var(--neutral-200);">
-                <span class="card-title" style="font-size: 0.95rem; font-weight: 800; color: var(--neutral-800);">Konfigurasi Gateway WhatsApp (Fonnte)</span>
+                <span class="card-title" style="font-size: 0.95rem; font-weight: 800; color: var(--neutral-800);">Konfigurasi Gateway WhatsApp</span>
             </div>
             <div class="card-body" style="padding: 1.5rem;">
                 <form action="{{ route('admin.settings.store') }}" method="POST">
                     @csrf
+                    
+                    <!-- Gateway Selection -->
                     <div style="margin-bottom: 1.5rem;">
+                        <label for="wa_gateway" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Pilih Gateway WhatsApp</label>
+                        <select name="wa_gateway" id="wa_gateway" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; background: white;" onchange="toggleGatewayFields()">
+                            <option value="fonnte" {{ $waGateway === 'fonnte' ? 'selected' : '' }}>Fonnte Gateway</option>
+                            <option value="groovite" {{ $waGateway === 'groovite' ? 'selected' : '' }}>Custom Gateway (Groovite / Galipat)</option>
+                        </select>
+                    </div>
+
+                    <!-- Fonnte Fields -->
+                    <div id="fonnte_fields" style="margin-bottom: 1.5rem; display: {{ $waGateway === 'fonnte' ? 'block' : 'none' }};">
                         <label for="fonnte_api_key" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Token API Fonnte</label>
                         <input type="text" name="fonnte_api_key" id="fonnte_api_key" value="{{ $fonnteApiKey }}" placeholder="Masukkan token Fonnte..." 
                                style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.15s;"
                                onfocus="this.style.borderColor='var(--primary)';" onblur="this.style.borderColor='var(--neutral-300)';">
                         <span style="font-size: 0.75rem; color: var(--neutral-500); display: block; margin-top: 6px; line-height: 1.4;">
-                            Token API ini digunakan untuk mengirim pesan verifikasi kehadiran serta laporan kehadiran berkala kepada para Pembina Kelompok secara otomatis.
+                            Token API Fonnte digunakan untuk mengirim pesan via Fonnte.
+                        </span>
+                    </div>
+
+                    <!-- Groovite Fields -->
+                    <div id="groovite_fields" style="margin-bottom: 1.5rem; display: {{ $waGateway === 'groovite' ? 'block' : 'none' }};">
+                        <div style="margin-bottom: 1rem;">
+                            <label for="groovite_api_url" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Base API URL</label>
+                            <input type="text" name="groovite_api_url" id="groovite_api_url" value="{{ $grooviteApiUrl }}" placeholder="Contoh: https://waa.galipatsistem.com/api" 
+                                   style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.15s;"
+                                   onfocus="this.style.borderColor='var(--primary)';" onblur="this.style.borderColor='var(--neutral-300)';">
+                        </div>
+                        <div>
+                            <label for="groovite_wa_key" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">API Key (waKey)</label>
+                            <input type="text" name="groovite_wa_key" id="groovite_wa_key" value="{{ $grooviteWaKey }}" placeholder="Masukkan waKey..." 
+                                   style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.15s;"
+                                   onfocus="this.style.borderColor='var(--primary)';" onblur="this.style.borderColor='var(--neutral-300)';">
+                        </div>
+                        <span style="font-size: 0.75rem; color: var(--neutral-500); display: block; margin-top: 6px; line-height: 1.4;">
+                            API Key (waKey) dan Base URL ini digunakan untuk mengirim pesan via Custom Gateway.
                         </span>
                     </div>
 
@@ -75,13 +105,13 @@
                                style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.15s;"
                                onfocus="this.style.borderColor='var(--primary)';" onblur="this.style.borderColor='var(--neutral-300)';">
                         <span style="font-size: 0.75rem; color: var(--neutral-500); display: block; margin-top: 6px; line-height: 1.4;">
-                            Masukkan nomor WhatsApp tujuan (misalnya nomor Anda sendiri) untuk menguji apakah token Fonnte yang disimpan sudah berfungsi dengan benar.
+                            Masukkan nomor WhatsApp tujuan (misalnya nomor Anda sendiri) untuk menguji apakah gateway WhatsApp yang disimpan sudah berfungsi dengan benar.
                         </span>
                     </div>
 
                     <div style="border-top: 1px solid var(--neutral-200); padding-top: 1rem; display: flex; justify-content: flex-end;">
                         <button type="submit" class="btn btn-outline" style="border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0.6rem 1.5rem; font-size: 0.9rem; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all 0.15s;"
-                                onmouseover="this.style.background='var(--primary-lt)';" onmouseout="this.style.background='transparent';">
+                                 onmouseover="this.style.background='var(--primary-lt)';" onmouseout="this.style.background='transparent';">
                             🚀 Kirim Pesan Tes
                         </button>
                     </div>
@@ -90,4 +120,20 @@
         </div>
     </div>
 </div>
+
+<script>
+    function toggleGatewayFields() {
+        const gateway = document.getElementById('wa_gateway').value;
+        const fonnteFields = document.getElementById('fonnte_fields');
+        const grooviteFields = document.getElementById('groovite_fields');
+        
+        if (gateway === 'groovite') {
+            fonnteFields.style.display = 'none';
+            grooviteFields.style.display = 'block';
+        } else {
+            fonnteFields.style.display = 'block';
+            grooviteFields.style.display = 'none';
+        }
+    }
+</script>
 @endsection
