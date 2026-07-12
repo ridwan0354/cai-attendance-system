@@ -13,6 +13,7 @@ import com.cai.attendance.ui.screen.ScannerScreen
 import com.cai.attendance.ui.screen.SyncScreen
 import com.cai.attendance.ui.screen.ParticipantsScreen
 import com.cai.attendance.ui.screen.RegisterFaceScreen
+import com.cai.attendance.ui.screen.RegisterSuppliesScreen
 import com.cai.attendance.ui.viewmodel.LoginViewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -42,6 +43,7 @@ fun CaiNavGraph() {
                 onNavigateToScanner      = { navController.navigate(Screen.Scanner.route) },
                 onNavigateToSync         = { navController.navigate(Screen.Sync.route) },
                 onNavigateToParticipants = { navController.navigate(Screen.Participants.route) },
+                onNavigateToRegisterSupplies = { navController.navigate(Screen.RegisterSupplies.route) },
                 onLogout                 = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
@@ -52,6 +54,12 @@ fun CaiNavGraph() {
 
         composable(Screen.Scanner.route) {
             ScannerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.RegisterSupplies.route) {
+            RegisterSuppliesScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

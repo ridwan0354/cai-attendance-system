@@ -30,6 +30,7 @@ fun HomeScreen(
     onNavigateToScanner: () -> Unit,
     onNavigateToSync: () -> Unit,
     onNavigateToParticipants: () -> Unit,
+    onNavigateToRegisterSupplies: () -> Unit,
     onLogout: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -195,6 +196,23 @@ fun HomeScreen(
                     Text("Mulai Scan Wajah", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text("Face recognition lokal", style = MaterialTheme.typography.labelSmall, color = CaiAccent)
                 }
+            }
+
+            // Tombol Registrasi Barang Peserta (Gift)
+            Button(
+                onClick   = onNavigateToRegisterSupplies,
+                modifier  = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape     = RoundedCornerShape(12.dp),
+                colors    = ButtonDefaults.buttonColors(
+                    containerColor = CaiSuccess.copy(alpha = 0.15f)
+                ),
+                border    = BorderStroke(1.dp, CaiSuccess)
+            ) {
+                Icon(Icons.Default.CardGiftcard, contentDescription = null, tint = CaiSuccess)
+                Spacer(Modifier.width(8.dp))
+                Text("Registrasi Barang Peserta 🎁", fontWeight = FontWeight.SemiBold, color = CaiSuccess)
             }
 
             // Tombol Registrasi Wajah
