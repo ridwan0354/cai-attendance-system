@@ -92,8 +92,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4")
 
-    // ── Google ML Kit - Face Detection ────────────────────────────────────────
+    // ── Google ML Kit - Face Detection & Barcode/QR Scanning ──────────────────
     implementation("com.google.mlkit:face-detection:16.1.6")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // ── TensorFlow Lite - FaceNet Embedding ───────────────────────────────────
     implementation("org.tensorflow:tensorflow-lite:2.14.0")

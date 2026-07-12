@@ -12,7 +12,7 @@ import com.cai.attendance.data.local.entity.ParticipantEntity
         ParticipantEntity::class,
         AttendanceQueueEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

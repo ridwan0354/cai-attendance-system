@@ -19,6 +19,7 @@ data class ParticipantEntity(
     val faceRegistered: Boolean,
     val photoPath: String?,        // path file foto lokal di internal storage
     val embeddingJson: String?,    // JSON FloatArray 512-d dari FaceNet
+    val qrCode: String?,           // ID QR Code unik peserta
     val updatedAt: String,
     val syncedAt: Long = System.currentTimeMillis()
 )

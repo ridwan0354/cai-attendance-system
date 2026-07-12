@@ -104,6 +104,7 @@ class MobileApiController extends Controller
                 'has_photo'       => $hasPhoto,
                 'photo_hash'      => $hasPhoto ? md5_file($photoPath) : null,
                 'updated_at'      => $p->updated_at?->toIso8601String(),
+                'qr_code'         => $p->qr_code,
             ];
         });
 

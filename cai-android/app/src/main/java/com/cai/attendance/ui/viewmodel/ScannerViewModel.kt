@@ -9,6 +9,7 @@ import com.cai.attendance.data.local.entity.ParticipantEntity
 import com.cai.attendance.data.remote.dto.SessionDto
 import com.cai.attendance.data.repository.AttendanceRepository
 import com.cai.attendance.data.repository.ParticipantRepository
+import com.cai.attendance.ml.BarcodeScannerHelper
 import com.cai.attendance.ml.FaceDetectorHelper
 import com.cai.attendance.ml.FaceMatcher
 import com.cai.attendance.ml.FaceNetModel
@@ -55,6 +56,7 @@ class ScannerViewModel @Inject constructor(
 
     private val faceNet     = FaceNetModel(context)
     private val faceDetector = FaceDetectorHelper()
+    private val barcodeScanner = BarcodeScannerHelper()
 
     private val _scanResult = MutableStateFlow<ScanResult>(ScanResult.Idle)
     val scanResult: StateFlow<ScanResult> = _scanResult.asStateFlow()
@@ -111,7 +113,41 @@ class ScannerViewModel @Inject constructor(
             _isProcessing.value = true
 
             try {
-                // 1. Deteksi wajah menggunakan ML Kit
+                // 1. Scan for QR/Barcode first
+                val barcodes = barcodeScanner.scanBarcodes(bitmap)
+                if (barcodes.isNotEmpty()) {
+                    val qrCodeValue = barcodes.first().rawValue
+                    if (!qrCodeValue.isNullOrBlank()) {
+                        Log.d(TAG, "Detected QR/Barcode: $qrCodeValue")
+                        val participant = participantRepo.findParticipantByCode(qrCodeValue)
+                        if (participant != null) {
+                            attendanceRepo.recordAttendance(
+                                participantId   = participant.id,
+                                sessionId       = session.id,
+                                participantName = participant.name,
+                                groupName       = participant.groupName,
+                                groupColor      = participant.groupColor,
+                                method          = "qr",
+                                confidenceScore = null,
+                            )
+
+                            _scanResult.value = ScanResult.Recognized(
+                                participantName = participant.name,
+                                groupName       = participant.groupName,
+                                groupColor      = participant.groupColor,
+                                confidence      = 100f,
+                                alreadyPresent  = false
+                            )
+
+                            startCooldown()
+                            return@launch
+                        } else {
+                            Log.w(TAG, "Participant not found locally for code: $qrCodeValue")
+                        }
+                    }
+                }
+
+                // 2. Deteksi wajah menggunakan ML Kit
                 val faces = faceDetector.detectFaces(bitmap)
                 if (faces.isEmpty()) {
                     _scanResult.value = ScanResult.NoFace
@@ -121,7 +157,7 @@ class ScannerViewModel @Inject constructor(
                 // Ambil wajah pertama yang terdeteksi
                 val face = faces.first()
 
-                // 2. Crop area wajah saja
+                // 3. Crop area wajah saja
                 val croppedFace = faceDetector.cropFace(bitmap, face)
                 if (croppedFace == null) {
                     _scanResult.value = ScanResult.NoFace
@@ -133,7 +169,7 @@ class ScannerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. Generate embedding dari wajah hasil crop
+                // 4. Generate embedding dari wajah hasil crop
                 val embedding = faceNet.getEmbedding(croppedFace)
 
                 if (embedding == null) {
@@ -208,5 +244,6 @@ class ScannerViewModel @Inject constructor(
         super.onCleared()
         faceNet.close()
         faceDetector.close()
+        barcodeScanner.close()
     }
 }

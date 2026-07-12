@@ -179,6 +179,7 @@ class ParticipantRepository @Inject constructor(
                     faceRegistered = dto.faceRegistered,
                     photoPath     = photoPath,
                     embeddingJson = embeddingJson,
+                    qrCode        = dto.qrCode,
                     updatedAt     = dto.updatedAt
                 )
                 participantDao.insert(entity)
@@ -337,6 +338,11 @@ class ParticipantRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
-        }
+    }
+
+    /** Cari peserta lokal berdasarkan kode QR, NIK, atau ID */
+    suspend fun findParticipantByCode(code: String): ParticipantEntity? = withContext(Dispatchers.IO) {
+        val codeInt = code.toIntOrNull() ?: -1
+        participantDao.findParticipantByCode(code, codeInt)
     }
 }

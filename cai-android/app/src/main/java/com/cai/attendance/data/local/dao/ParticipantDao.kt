@@ -16,6 +16,9 @@ interface ParticipantDao {
     @Query("SELECT * FROM participants WHERE id = :id")
     suspend fun getById(id: Int): ParticipantEntity?
 
+    @Query("SELECT * FROM participants WHERE qrCode = :query OR id = :queryInt OR nik = :query LIMIT 1")
+    suspend fun findParticipantByCode(query: String, queryInt: Int): ParticipantEntity?
+
     /** Ambil semua peserta yang sudah punya embedding (siap untuk face matching) */
     @Query("SELECT * FROM participants WHERE embeddingJson IS NOT NULL")
     suspend fun getAllWithEmbedding(): List<ParticipantEntity>
