@@ -602,6 +602,12 @@ class MobileApiController extends Controller
         // Sinkronisasi barang ke pivot table
         $participant->supplies()->sync($request->input('supplies', []));
 
+        // Tandai sebagai terdaftar
+        if (empty($participant->registered_at)) {
+            $participant->registered_at = now();
+        }
+        $participant->save();
+
         return response()->json([
             'success' => true,
             'message' => 'Registrasi barang berhasil diperbarui.',
