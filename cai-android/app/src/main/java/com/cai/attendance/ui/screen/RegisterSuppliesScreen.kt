@@ -69,7 +69,7 @@ fun RegisterSuppliesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Default.Giftcard,
+                        Icons.Default.CardGiftcard,
                         contentDescription = null,
                         tint = CaiSuccess,
                         modifier = Modifier.size(32.dp)
