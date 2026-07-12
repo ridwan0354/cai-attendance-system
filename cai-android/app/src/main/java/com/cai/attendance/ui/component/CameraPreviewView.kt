@@ -17,10 +17,13 @@ import java.util.concurrent.Executors
 /**
  * Composable yang menampilkan preview kamera real-time menggunakan CameraX.
  * Mengirimkan frame bitmap ke [onFrameReady] setiap ~500ms untuk diproses.
+ *
+ * @param useFrontCamera true = kamera depan (mode wajah), false = kamera belakang (mode QR)
  */
 @Composable
 fun CameraPreviewView(
     modifier: Modifier = Modifier,
+    useFrontCamera: Boolean = true,
     onFrameReady: (Bitmap) -> Unit,
 ) {
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
@@ -36,7 +39,7 @@ fun CameraPreviewView(
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 scaleType = PreviewView.ScaleType.FILL_CENTER
             }
-            startCamera(context, previewView, executor, onFrameReady)
+            startCamera(context, previewView, executor, useFrontCamera, onFrameReady)
             previewView
         }
     )
@@ -46,6 +49,7 @@ private fun startCamera(
     context: Context,
     previewView: PreviewView,
     executor: ExecutorService,
+    useFrontCamera: Boolean,
     onFrameReady: (Bitmap) -> Unit
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -78,20 +82,32 @@ private fun startCamera(
                 }
             }
 
+        // Pilih kamera: depan untuk wajah, belakang untuk QR
+        val primarySelector = if (useFrontCamera) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
+        val fallbackSelector = if (useFrontCamera) {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        } else {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        }
+
         try {
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 previewView.context as LifecycleOwner,
-                CameraSelector.DEFAULT_FRONT_CAMERA, // Kamera depan untuk absensi
+                primarySelector,
                 preview,
                 imageAnalysis
             )
         } catch (e: Exception) {
-            // Fallback ke kamera belakang jika kamera depan tidak ada
+            // Fallback ke kamera lain
             try {
                 cameraProvider.bindToLifecycle(
                     previewView.context as LifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    fallbackSelector,
                     preview,
                     imageAnalysis
                 )

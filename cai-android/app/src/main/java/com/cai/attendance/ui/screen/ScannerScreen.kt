@@ -31,6 +31,8 @@ import com.cai.attendance.ui.theme.*
 import com.cai.attendance.ui.viewmodel.ScanResult
 import com.cai.attendance.ui.viewmodel.ScannerViewModel
 
+enum class ScanMode { FACE, QR }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerScreen(
@@ -41,6 +43,9 @@ fun ScannerScreen(
     val scanResult   by viewModel.scanResult.collectAsState()
     val activeSession by viewModel.activeSession.collectAsState()
     val isProcessing by viewModel.isProcessing.collectAsState()
+
+    // Mode scan: FACE (kamera depan) atau QR (kamera belakang)
+    var scanMode by remember { mutableStateOf(ScanMode.FACE) }
 
     // Permission state
     var hasCameraPermission by remember {
@@ -85,6 +90,17 @@ fun ScannerScreen(
                     }
                 },
                 actions = {
+                    // Tombol toggle mode scan
+                    IconButton(onClick = {
+                        scanMode = if (scanMode == ScanMode.FACE) ScanMode.QR else ScanMode.FACE
+                        viewModel.resetResult()
+                    }) {
+                        Icon(
+                            if (scanMode == ScanMode.FACE) Icons.Default.QrCode else Icons.Default.Face,
+                            contentDescription = "Toggle Scan Mode",
+                            tint = CaiAccent
+                        )
+                    }
                     IconButton(onClick = viewModel::refreshSession) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh Sesi", tint = CaiAccent)
                     }
@@ -139,6 +155,7 @@ fun ScannerScreen(
             // ── Preview Kamera (Full Screen) ──────────────────────────────
             CameraPreviewView(
                 modifier = Modifier.fillMaxSize(),
+                useFrontCamera = (scanMode == ScanMode.FACE),
                 onFrameReady = { bitmap: Bitmap ->
                     viewModel.processFrame(bitmap)
                 }
@@ -174,6 +191,33 @@ fun ScannerScreen(
                     )
             )
 
+            // ── Label mode aktif ──────────────────────────────────────────
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp),
+                color = if (scanMode == ScanMode.QR) CaiAccent.copy(alpha = 0.85f) else CaiNavy.copy(alpha = 0.75f),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (scanMode == ScanMode.QR) Icons.Default.QrCode else Icons.Default.Face,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (scanMode == ScanMode.QR) "Mode QR — arahkan kamera ke kartu QR" else "Mode Wajah — hadapkan wajah ke kamera",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
+
             // ── Status Result Card ────────────────────────────────────────
             AnimatedContent(
                 targetState = scanResult,
@@ -188,14 +232,17 @@ fun ScannerScreen(
                 label = "scanResult"
             ) { result ->
                 when (result) {
-                    is ScanResult.Recognized -> RecognizedCard(result)
+                    is ScanResult.Recognized ->
+                        RecognizedCard(result, if (scanMode == ScanMode.QR) "QR" else "Wajah")
                     is ScanResult.Unknown    -> UnknownCard(result)
-                    is ScanResult.NoFace     -> HintCard("Arahkan wajah ke kamera")
+                    is ScanResult.NoFace     ->
+                        HintCard(if (scanMode == ScanMode.QR) "Arahkan kamera ke kode QR peserta" else "Arahkan wajah ke kamera")
                     is ScanResult.ModelNotReady -> ErrorCard("Model FaceNet belum siap. Pastikan file facenet.tflite ada di assets/")
                     is ScanResult.NoActiveSession -> ErrorCard("Tidak ada sesi aktif. Aktifkan sesi di server terlebih dahulu.")
                     is ScanResult.Error      -> ErrorCard(result.message)
                     is ScanResult.Scanning   -> ProcessingCard()
-                    else                     -> HintCard("Arahkan wajah ke area kotak di atas")
+                    else                     ->
+                        HintCard(if (scanMode == ScanMode.QR) "Tunjukkan kartu QR ke kamera belakang" else "Arahkan wajah ke area kotak di atas")
                 }
             }
 
@@ -213,7 +260,7 @@ fun ScannerScreen(
 }
 
 @Composable
-private fun RecognizedCard(result: ScanResult.Recognized) {
+private fun RecognizedCard(result: ScanResult.Recognized, method: String = "Wajah") {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors   = CardDefaults.cardColors(
@@ -245,7 +292,7 @@ private fun RecognizedCard(result: ScanResult.Recognized) {
                     color = CaiTextSecondary
                 )
                 Text(
-                    "Confidence: ${result.confidence.toInt()}%",
+                    "Confidence: ${result.confidence.toInt()}% · ${method}",
                     style = MaterialTheme.typography.labelSmall,
                     color = CaiSuccess
                 )
