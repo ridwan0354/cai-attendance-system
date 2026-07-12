@@ -156,6 +156,18 @@ class FonnteWhatsAppService
 
         $session = $attendance->session;
         $phone = $this->normalizePhone($participant->phone);
+
+        // Check if already sent check-in confirmation to this phone for this session
+        $alreadySent = NotificationLog::where('session_id', $session->id)
+            ->where('phone_number', $phone)
+            ->where('status', 'sent')
+            ->exists();
+
+        if ($alreadySent) {
+            Log::info("WA Check-in confirmation already sent to {$phone} for session {$session->id}. Skipping.");
+            return true;
+        }
+
         $methodLabel = match ($attendance->method) {
             'face' => 'Pindai Wajah (Face Recognition) 📷',
             'qr' => 'Pindai Kode QR 📱',
@@ -163,24 +175,45 @@ class FonnteWhatsAppService
             default => 'Manual ✏️',
         };
 
+        $groupName = $participant->group?->name ?? 'Tidak Ada';
+
         $message = "✅ *Konfirmasi Kehadiran CAI LOMBOK 2026*\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n\n";
         $message .= "Halo *{$participant->name}*,\n";
         $message .= "Kehadiran Anda berhasil tercatat di sistem kami:\n\n";
         $message .= "📅 Sesi: *{$session->name}*\n";
+        $message .= "👥 Kelompok: *{$groupName}*\n";
         $message .= "⏰ Waktu Absen: *{$attendance->check_in_time->format('H:i:s')}*\n";
         $message .= "👤 Metode: *{$methodLabel}*\n\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "Terima kasih atas partisipasinya!\n\n";
         $message .= "_Pesan otomatis - CAI Lombok 2026_";
 
+        // Log attempt (group_id is required by DB schema)
+        $log = NotificationLog::create([
+            'group_id'     => $participant->group_id,
+            'session_id'   => $session->id,
+            'phone_number' => $phone,
+            'message'      => $message,
+            'status'       => 'pending',
+        ]);
+
         $res = $this->sendMessage($phone, $message);
 
         if ($res['success']) {
+            $log->update([
+                'status'             => 'sent',
+                'fonnte_message_id'  => $res['message_id'] ?? null,
+                'sent_at'            => now(),
+            ]);
             Log::info("WA Check-in confirmation sent to participant {$participant->name} ({$phone})");
             return true;
         }
 
+        $log->update([
+            'status'        => 'failed',
+            'error_message' => $res['error'] ?? 'Unknown error',
+        ]);
         Log::error("Failed to send WA Check-in confirmation to {$phone}", ['error' => $res['error'] ?? 'Unknown error']);
         return false;
     }

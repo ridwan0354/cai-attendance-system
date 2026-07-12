@@ -508,6 +508,13 @@ class MobileApiController extends Controller
             Log::warning('Mobile: Failed to broadcast attendance', ['error' => $e->getMessage()]);
         }
 
+        // Dispatch WhatsApp Check-in Confirmation after response
+        try {
+            \App\Jobs\SendCheckInConfirmation::dispatchAfterResponse($attendance);
+        } catch (\Exception $e) {
+            Log::warning('Mobile: Failed to dispatch WA confirmation', ['error' => $e->getMessage()]);
+        }
+
         Log::info("Mobile attendance recorded: {$participant->name} [{$method}] session {$sessionId}");
 
         return [

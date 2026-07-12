@@ -23,8 +23,7 @@ class SendCheckInConfirmation implements ShouldQueue
 
     public function handle(FonnteWhatsAppService $waService): void
     {
-        // Load relationships if not loaded
-        $this->attendance->loadMissing(['participant', 'session']);
+        $this->attendance->loadMissing(['participant.group', 'session']);
 
         $waService->sendCheckInConfirmation($this->attendance);
     }
