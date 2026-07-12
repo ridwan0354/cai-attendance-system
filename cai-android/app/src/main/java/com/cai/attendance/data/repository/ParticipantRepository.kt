@@ -338,6 +338,7 @@ class ParticipantRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
     }
 
     /** Cari peserta lokal berdasarkan kode QR, NIK, atau ID */
