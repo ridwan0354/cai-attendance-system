@@ -28,11 +28,18 @@ sealed class SuppliesScanResult {
     object Scanning : SuppliesScanResult()
     object NoFace : SuppliesScanResult()
     object ModelNotReady : SuppliesScanResult()
-    data class Success(
+    
+    // Hasil scan berhasil, tampilkan checklist barang ke panitia
+    data class Scanned(
+        val participantId: Int,
         val participantName: String,
         val groupName: String,
-        val items: List<String>
+        val supplies: List<com.cai.attendance.data.remote.dto.SupplyDto>
     ) : SuppliesScanResult()
+    
+    // Berhasil disimpan
+    data class Success(val participantName: String) : SuppliesScanResult()
+    
     data class Unknown(val confidence: Float) : SuppliesScanResult()
     data class Error(val message: String) : SuppliesScanResult()
 }
@@ -45,7 +52,7 @@ class RegisterSuppliesViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "RegSuppliesViewModel"
-        private const val COOLDOWN_MS = 2500L
+        private const val COOLDOWN_MS = 3000L // Cooldown scan untuk menghindari scan beruntun dari orang yang sama
     }
 
     private val faceNet     = FaceNetModel(context)
@@ -78,6 +85,12 @@ class RegisterSuppliesViewModel @Inject constructor(
 
     fun processFrame(bitmap: Bitmap) {
         if (inCooldown || _isProcessing.value) return
+        
+        // Jika sedang menampilkan popup checklist, jangan scan wajah/QR lain
+        if (_scanResult.value is SuppliesScanResult.Scanned || _scanResult.value is SuppliesScanResult.Success) {
+            return
+        }
+
         if (!faceNet.isReady) {
             _scanResult.value = SuppliesScanResult.ModelNotReady
             return
@@ -95,7 +108,7 @@ class RegisterSuppliesViewModel @Inject constructor(
                         Log.d(TAG, "Detected QR/Barcode: $qrCodeValue")
                         val participant = participantRepo.findParticipantByCode(qrCodeValue)
                         if (participant != null) {
-                            registerParticipantSupplies(participant)
+                            onParticipantRecognized(participant)
                             return@launch
                         } else {
                             Log.w(TAG, "Participant not found locally for code: $qrCodeValue")
@@ -137,7 +150,7 @@ class RegisterSuppliesViewModel @Inject constructor(
                 }
 
                 val participant = matchResult.participant
-                registerParticipantSupplies(participant)
+                onParticipantRecognized(participant)
 
             } catch (e: Exception) {
                 Log.e(TAG, "Processing error: ${e.message}")
@@ -148,30 +161,28 @@ class RegisterSuppliesViewModel @Inject constructor(
         }
     }
 
-    private suspend fun registerParticipantSupplies(participant: ParticipantEntity) {
+    private suspend fun onParticipantRecognized(participant: ParticipantEntity) {
         withContext(Dispatchers.IO) {
             try {
-                // 1. Get participant's supplies
+                // Ambil data barang dari server VPS
                 val suppliesRes = participantRepo.getParticipantSupplies(participant.id)
                 suppliesRes.fold(
                     onSuccess = { supplies ->
-                        // 2. Mark all as received (sync)
-                        val allIds = supplies.map { it.id }
-                        val syncRes = participantRepo.syncParticipantSupplies(participant.id, allIds)
-                        syncRes.fold(
-                            onSuccess = {
-                                val itemNames = supplies.map { it.name }
-                                _scanResult.value = SuppliesScanResult.Success(
-                                    participantName = participant.name,
-                                    groupName = participant.groupName,
-                                    items = itemNames
-                                )
-                                startCooldown()
-                            },
-                            onFailure = {
-                                _scanResult.value = SuppliesScanResult.Error("Gagal sinkronisasi barang: ${it.message}")
-                            }
+                        // Jika peserta belum pernah mengambil barang (semua received = false),
+                        // centang semuanya secara default untuk memudahkan panitia
+                        val processedSupplies = if (supplies.none { it.received }) {
+                            supplies.map { it.copy(received = true) }
+                        } else {
+                            supplies
+                        }
+
+                        _scanResult.value = SuppliesScanResult.Scanned(
+                            participantId   = participant.id,
+                            participantName = participant.name,
+                            groupName       = participant.groupName,
+                            supplies        = processedSupplies
                         )
+                        startCooldown()
                     },
                     onFailure = {
                         _scanResult.value = SuppliesScanResult.Error("Gagal mengambil daftar barang: ${it.message}")
@@ -183,8 +194,46 @@ class RegisterSuppliesViewModel @Inject constructor(
         }
     }
 
+    fun toggleSupplySelection(supplyId: Int) {
+        val currentState = _scanResult.value
+        if (currentState is SuppliesScanResult.Scanned) {
+            val updatedSupplies = currentState.supplies.map {
+                if (it.id == supplyId) it.copy(received = !it.received) else it
+            }
+            _scanResult.value = currentState.copy(supplies = updatedSupplies)
+        }
+    }
+
+    fun saveSuppliesSelection() {
+        val currentState = _scanResult.value
+        if (currentState is SuppliesScanResult.Scanned) {
+            _isProcessing.value = true
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val selectedIds = currentState.supplies.filter { it.received }.map { it.id }
+                    val result = participantRepo.syncParticipantSupplies(currentState.participantId, selectedIds)
+                    result.fold(
+                        onSuccess = {
+                            _scanResult.value = SuppliesScanResult.Success(currentState.participantName)
+                            // Tampilkan dialog sukses selama 1.5 detik lalu tutup otomatis kembali ke mode scan
+                            delay(1500)
+                            forceReset()
+                        },
+                        onFailure = {
+                            _scanResult.value = SuppliesScanResult.Error("Gagal menyimpan registrasi: ${it.message}")
+                        }
+                    )
+                } catch (e: Exception) {
+                    _scanResult.value = SuppliesScanResult.Error("Gagal menyimpan: ${e.message}")
+                } finally {
+                    _isProcessing.value = false
+                }
+            }
+        }
+    }
+
     fun resetResult() {
-        if (!inCooldown) {
+        if (!inCooldown && _scanResult.value !is SuppliesScanResult.Scanned && _scanResult.value !is SuppliesScanResult.Success) {
             _scanResult.value = SuppliesScanResult.Idle
         }
     }
