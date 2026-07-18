@@ -91,8 +91,9 @@
                         </div>
                         <p style="font-size:.75rem;color:var(--neutral-500);margin-top:.5rem;">
                             Atau upload file:
-                            <input type="file" name="photo" accept="image/*" style="width:auto;margin-left:.3rem;" onchange="previewFile(this)">
+                            <input type="file" id="photoFileInput" accept="image/*" style="width:auto;margin-left:.3rem;" onchange="previewFile(this)">
                         </p>
+                        <p id="compressNote" style="font-size:.7rem;color:var(--neutral-400);margin-top:.25rem;display:none;">🗜️ Mengompresi gambar...</p>
                     </div>
                     <input type="hidden" name="face_base64" id="faceBase64">
                 </div>
@@ -249,11 +250,38 @@ function retakePhoto() {
 function previewFile(input) {
     const file = input.files[0];
     if (!file) return;
+
+    const note = document.getElementById('compressNote');
+    note.style.display = 'block';
+    note.textContent = '🗜️ Mengompresi gambar...';
+
     const reader = new FileReader();
     reader.onload = (e) => {
-        document.getElementById('capturePreview').src = e.target.result;
-        document.getElementById('capturePreview').style.display = 'block';
-        document.getElementById('captureVideo').style.display = 'none';
+        const img = new Image();
+        img.onload = () => {
+            // Compress: max 800px wide, quality 0.75
+            const MAX_W = 800;
+            let w = img.width, h = img.height;
+            if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+            const base64 = dataUrl.split(',')[1];
+
+            document.getElementById('faceBase64').value = base64;
+            document.getElementById('capturePreview').src = dataUrl;
+            document.getElementById('capturePreview').style.display = 'block';
+            document.getElementById('captureVideo').style.display = 'none';
+
+            // Show compressed size info
+            const kb = Math.round(base64.length * 0.75 / 1024);
+            note.textContent = `✅ Gambar dikompres: ~${kb} KB`;
+            note.style.color = 'var(--success, green)';
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }

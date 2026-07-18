@@ -61,8 +61,27 @@ class ParticipantController extends Controller
         ]);
 
         $photoPath = null;
+        // Priority 1: direct file upload
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('participants', 'public');
+        }
+
+        // ── Register face to DeepFace database ───────────────────────
+        // Priority from webcam or client-compressed file upload (face_base64)
+        $base64 = $request->input('face_base64');
+
+        // If no direct file but we have base64 (from webcam or client-side compression),
+        // save the compressed image as the photo file too
+        if (empty($photoPath) && !empty($base64)) {
+            $imgData   = base64_decode($base64);
+            $filename  = 'participants/' . \Illuminate\Support\Str::uuid() . '.jpg';
+            \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $imgData);
+            $photoPath = $filename;
+        }
+
+        // Priority 2: uploaded file → convert to base64 for face service
+        if (empty($base64) && $request->hasFile('photo')) {
+            $base64 = base64_encode(file_get_contents($request->file('photo')->getRealPath()));
         }
 
         $participant = Participant::create([
@@ -73,15 +92,6 @@ class ParticipantController extends Controller
             'qr_code'    => $validated['qr_code'],
             'photo_path' => $photoPath,
         ]);
-
-        // ── Register face to DeepFace database ───────────────────────
-        // Priority 1: webcam base64 capture
-        $base64 = $request->input('face_base64');
-
-        // Priority 2: uploaded file (convert to base64)
-        if (empty($base64) && $request->hasFile('photo')) {
-            $base64 = base64_encode(file_get_contents($request->file('photo')->getRealPath()));
-        }
 
         if (!empty($base64)) {
             $result = $this->faceService->registerFace($participant->id, $participant->name, $base64);
