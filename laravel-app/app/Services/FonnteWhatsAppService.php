@@ -185,6 +185,8 @@ class FonnteWhatsAppService
         $message .= "👥 Kelompok: *{$groupName}*\n";
         $message .= "⏰ Waktu Absen: *{$attendance->check_in_time->format('H:i:s')}*\n";
         $message .= "👤 Metode: *{$methodLabel}*\n\n";
+        $message .= "📸 *Jangan lupa cetak dokumentasi foto-foto keren kamu selama acara hanya dengan Rp10.000 saja!*\n";
+        $message .= "Kunjungi link berikut untuk mencetak: https://twibbon.galipatsistem.com/\n\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "Terima kasih atas partisipasinya!\n\n";
         $message .= "_Pesan otomatis - CAI Lombok 2026_";
