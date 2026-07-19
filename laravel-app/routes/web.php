@@ -86,6 +86,12 @@ Route::prefix('api/mobile')->name('api.mobile.')->group(function () {
     // Daftar peserta (incremental sync via ?since=)
     Route::get('participants', [MobileApiController::class, 'participants'])->name('participants');
 
+    // Tambah peserta baru
+    Route::post('participants', [MobileApiController::class, 'storeParticipant'])->name('participants.store');
+
+    // Daftar kelompok peserta
+    Route::get('groups', [MobileApiController::class, 'groups'])->name('groups');
+
     // Register wajah peserta baru/update
     Route::post('participants/{id}/register-face', [MobileApiController::class, 'registerFace'])->name('participants.register-face');
 

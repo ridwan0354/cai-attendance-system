@@ -391,6 +391,76 @@ class MobileApiController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/mobile/groups
+    // Daftar semua kelompok peserta
+    // ─────────────────────────────────────────────────────────────────────────
+    public function groups(Request $request): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $groups = \App\Models\Group::orderBy('name')->get()->map(fn($g) => [
+            'id'    => $g->id,
+            'name'  => $g->name,
+            'color' => $g->color,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $groups,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POST /api/mobile/participants
+    // Tambah peserta baru via Mobile App
+    // ─────────────────────────────────────────────────────────────────────────
+    public function storeParticipant(Request $request): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'group_id' => 'required|exists:groups,id',
+            'gender'   => 'required|string|in:Laki-laki,Perempuan',
+            'phone'    => 'required|string|max:20',
+            'qr_code'  => 'nullable|string|max:100|unique:participants,qr_code',
+        ]);
+
+        $participant = Participant::create([
+            'name'            => $request->input('name'),
+            'group_id'        => $request->input('group_id'),
+            'gender'          => $request->input('gender'),
+            'phone'           => $request->input('phone'),
+            'qr_code'         => $request->input('qr_code'),
+            'face_registered' => false,
+        ]);
+
+        $participant->load('group');
+
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Peserta berhasil ditambahkan.',
+            'participant' => [
+                'id'              => $participant->id,
+                'name'            => $participant->name,
+                'nik'             => null,
+                'group_id'        => $participant->group_id,
+                'group_name'      => $participant->group?->name ?? '',
+                'group_color'     => $participant->group?->color ?? '#1E5FBB',
+                'face_registered' => $participant->face_registered,
+                'has_photo'       => false,
+                'photo_hash'      => null,
+                'updated_at'      => $participant->updated_at?->toIso8601String(),
+                'qr_code'         => $participant->qr_code,
+            ],
+        ], 201);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Private helpers
     // ─────────────────────────────────────────────────────────────────────────
 

@@ -114,4 +114,30 @@ data class SyncSuppliesResponse(
     @SerializedName("message") val message: String?
 )
 
+// ── DTOs untuk Tambah Peserta Baru ──────────────────────────────────────────
+data class GroupDto(
+    @SerializedName("id")    val id: Int,
+    @SerializedName("name")  val name: String,
+    @SerializedName("color") val color: String
+)
+
+data class GroupsResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data")    val data: List<GroupDto>
+)
+
+data class CreateParticipantRequest(
+    @SerializedName("name")     val name: String,
+    @SerializedName("group_id") val groupId: Int,
+    @SerializedName("gender")   val gender: String,
+    @SerializedName("phone")    val phone: String,
+    @SerializedName("qr_code")  val qrCode: String?
+)
+
+data class CreateParticipantResponse(
+    @SerializedName("success")     val success: Boolean,
+    @SerializedName("message")     val message: String?,
+    @SerializedName("participant") val participant: ParticipantDto?
+)
+
 

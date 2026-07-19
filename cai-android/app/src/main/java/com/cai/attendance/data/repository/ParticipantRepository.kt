@@ -346,4 +346,60 @@ class ParticipantRepository @Inject constructor(
         val codeInt = code.toIntOrNull() ?: -1
         participantDao.findParticipantByCode(code, codeInt)
     }
+
+    suspend fun getGroups(): Result<List<com.cai.attendance.data.remote.dto.GroupDto>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getGroups()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()?.data ?: emptyList())
+            } else {
+                Result.failure(Exception("Gagal mengambil data kelompok: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createParticipant(
+        name: String,
+        groupId: Int,
+        gender: String,
+        phone: String,
+        qrCode: String?
+    ): Result<ParticipantEntity> = withContext(Dispatchers.IO) {
+        try {
+            val request = com.cai.attendance.data.remote.dto.CreateParticipantRequest(
+                name = name,
+                groupId = groupId,
+                gender = gender,
+                phone = phone,
+                qrCode = qrCode
+            )
+            val response = apiService.createParticipant(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val dto = response.body()?.participant ?: return@withContext Result.failure(Exception("Data peserta kosong"))
+                
+                val entity = ParticipantEntity(
+                    id = dto.id,
+                    name = dto.name,
+                    nik = dto.nik,
+                    groupId = dto.groupId,
+                    groupName = dto.groupName ?: "",
+                    groupColor = dto.groupColor ?: "#0052cc",
+                    hasPhoto = dto.hasPhoto,
+                    faceRegistered = dto.faceRegistered,
+                    photoPath = null,
+                    embeddingJson = null,
+                    qrCode = dto.qrCode,
+                    updatedAt = dto.updatedAt
+                )
+                participantDao.insert(entity)
+                Result.success(entity)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: "Gagal menambah peserta di server: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

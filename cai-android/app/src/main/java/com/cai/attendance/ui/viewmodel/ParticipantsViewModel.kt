@@ -25,6 +25,13 @@ data class RegisterFaceUiState(
     val message: String      = ""
 )
 
+data class CreateParticipantUiState(
+    val isSaving: Boolean = false,
+    val isSuccess: Boolean? = null,
+    val message: String = ""
+)
+
+
 @HiltViewModel
 class ParticipantsViewModel @Inject constructor(
     private val participantRepo: ParticipantRepository
@@ -152,5 +159,67 @@ class ParticipantsViewModel @Inject constructor(
         bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
         val bytes = outputStream.toByteArray()
         Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    private val _createState = MutableStateFlow(CreateParticipantUiState())
+    val createState: StateFlow<CreateParticipantUiState> = _createState.asStateFlow()
+
+    private val _groups = MutableStateFlow<List<com.cai.attendance.data.remote.dto.GroupDto>>(emptyList())
+    val groups: StateFlow<List<com.cai.attendance.data.remote.dto.GroupDto>> = _groups.asStateFlow()
+
+    private val _isLoadingGroups = MutableStateFlow(false)
+    val isLoadingGroups: StateFlow<Boolean> = _isLoadingGroups.asStateFlow()
+
+    fun loadGroups(onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoadingGroups.value = true
+            val result = participantRepo.getGroups()
+            result.fold(
+                onSuccess = { list ->
+                    _groups.value = list
+                },
+                onFailure = {
+                    Log.e("ParticipantsViewModel", "Failed to load groups: ${it.message}")
+                    onError(it.message ?: "Gagal memuat kelompok dari server")
+                }
+            )
+            _isLoadingGroups.value = false
+        }
+    }
+
+    fun createParticipant(
+        name: String,
+        groupId: Int,
+        gender: String,
+        phone: String,
+        qrCode: String?,
+        onComplete: (Boolean, ParticipantEntity?) -> Unit
+    ) {
+        viewModelScope.launch {
+            _createState.value = CreateParticipantUiState(isSaving = true, message = "Menyimpan peserta…")
+            val result = participantRepo.createParticipant(name, groupId, gender, phone, qrCode)
+            result.fold(
+                onSuccess = { entity ->
+                    _createState.value = CreateParticipantUiState(
+                        isSaving = false,
+                        isSuccess = true,
+                        message = "Peserta berhasil ditambahkan"
+                    )
+                    onComplete(true, entity)
+                },
+                onFailure = { err ->
+                    _createState.value = CreateParticipantUiState(
+                        isSaving = false,
+                        isSuccess = false,
+                        message = err.message ?: "Gagal menambahkan peserta"
+                    )
+                    onComplete(false, null)
+                }
+            )
+        }
+    }
+
+    fun resetCreateState() {
+        _createState.value = CreateParticipantUiState()
     }
 }

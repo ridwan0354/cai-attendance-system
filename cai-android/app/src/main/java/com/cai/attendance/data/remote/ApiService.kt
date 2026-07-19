@@ -74,4 +74,14 @@ interface ApiService {
         @Path("id") participantId: Int,
         @Body body: SyncSuppliesRequest
     ): Response<SyncSuppliesResponse>
+
+    /** Ambil semua kelompok peserta */
+    @GET("api/mobile/groups")
+    suspend fun getGroups(): Response<GroupsResponse>
+
+    /** Tambah peserta baru */
+    @POST("api/mobile/participants")
+    suspend fun createParticipant(
+        @Body body: CreateParticipantRequest
+    ): Response<CreateParticipantResponse>
 }
