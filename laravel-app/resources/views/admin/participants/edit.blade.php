@@ -128,6 +128,10 @@
                     <button type="button" class="btn btn-primary btn-sm" onclick="captureAndRegister()" id="captureBtn" disabled>
                         📸 Ambil & Daftarkan
                     </button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('faceFileInput').click()" id="uploadBtn">
+                        📁 Upload Foto
+                    </button>
+                    <input type="file" id="faceFileInput" accept="image/*" style="display:none;" onchange="handleFaceFileUpload(event)">
                     <button type="button" class="btn btn-outline btn-sm" onclick="retake()" id="retakeBtn" style="display:none;">
                         🔄 Ulangi
                     </button>
@@ -325,6 +329,69 @@ function retake() {
     document.getElementById('captureBtn').disabled = true;
     document.getElementById('registerResult').style.display = 'none';
     startCamera();
+}
+
+async function handleFaceFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        alert('File harus berupa gambar!');
+        return;
+    }
+
+    const preview = document.getElementById('capturePreview');
+    const video = document.getElementById('captureVideo');
+    
+    // Stop camera if running
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+    }
+    video.style.display = 'none';
+    document.getElementById('startCamBtn').style.display = 'inline-flex';
+    document.getElementById('captureBtn').disabled = true;
+    document.getElementById('retakeBtn').style.display = 'none';
+
+    showResult('⏳ Sedang memproses file foto...', 'success');
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const dataUrl = e.target.result;
+        const base64 = dataUrl.split(',')[1];
+        
+        // Show preview
+        preview.src = dataUrl;
+        preview.style.display = 'block';
+
+        showResult('⏳ Mendaftarkan foto ke sistem...', 'success');
+
+        try {
+            const res = await fetch(`/admin/participants/${PARTICIPANT_ID}/register-face`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ image: base64 })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                showResult('✅ ' + data.message + ' — Refresh halaman untuk melihat status terbaru.', 'success');
+                document.querySelector('.face-status-badge').className = 'face-status-badge ok';
+                document.querySelector('.face-status-badge').textContent = '✅ Wajah sudah terdaftar di sistem';
+                document.querySelector('.face-section').classList.remove('unregistered');
+            } else {
+                showResult('❌ Gagal: ' + data.message, 'error');
+            }
+        } catch(err) {
+            showResult('❌ Error koneksi: ' + err.message, 'error');
+        }
+    };
+    reader.readAsDataURL(file);
 }
 
 function showResult(msg, type) {
