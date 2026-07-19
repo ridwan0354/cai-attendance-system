@@ -245,7 +245,7 @@ class FonnteWhatsAppService
         $message = "📋 *Laporan Kehadiran CAI LOMBOK 2026*\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "📅 Sesi: *{$session->name}*\n";
-        $message .= "👥 Grup: *{$group->name}*\n";
+        $message .= "👥 Kelompok: *{$group->name}*\n";
         $message .= "🗓️ Hari ke-{$session->day_number} | " . $session->date->format('d M Y') . "\n\n";
 
         $message .= "📊 *Rincian Utusan:*\n";
