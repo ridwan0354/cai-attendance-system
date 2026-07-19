@@ -218,30 +218,44 @@ fun ScannerScreen(
                 }
             }
 
-            // ── Status Result Card ────────────────────────────────────────
-            AnimatedContent(
-                targetState = scanResult,
-                transitionSpec = {
-                    slideInVertically { it } + fadeIn() togetherWith
-                    slideOutVertically { it } + fadeOut()
-                },
+            // ── Center Popup for terminal scan states ─────────────────────
+            AnimatedVisibility(
+                visible = scanResult is ScanResult.Recognized || scanResult is ScanResult.Unknown || scanResult is ScanResult.Error || scanResult is ScanResult.ModelNotReady || scanResult is ScanResult.NoActiveSession,
+                enter = fadeIn() + scaleIn(initialScale = 0.85f),
+                exit = fadeOut() + scaleOut(targetScale = 0.85f),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(32.dp)
+                    .widthIn(max = 400.dp),
+                label = "centerPopup"
+            ) {
+                when (val result = scanResult) {
+                    is ScanResult.Recognized ->
+                        RecognizedCard(result, if (scanMode == ScanMode.QR) "QR" else "Wajah")
+                    is ScanResult.Unknown -> UnknownCard(result)
+                    is ScanResult.ModelNotReady -> ErrorCard("Model FaceNet belum siap. Pastikan file facenet.tflite ada di assets/")
+                    is ScanResult.NoActiveSession -> ErrorCard("Tidak ada sesi aktif. Aktifkan sesi di server terlebih dahulu.")
+                    is ScanResult.Error -> ErrorCard(result.message)
+                    else -> Unit
+                }
+            }
+
+            // ── Status Result Card (Bottom) ────────────────────────────────
+            AnimatedVisibility(
+                visible = scanResult is ScanResult.NoFace || scanResult is ScanResult.Scanning || scanResult is ScanResult.Idle,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(16.dp)
                     .fillMaxWidth(),
-                label = "scanResult"
-            ) { result ->
-                when (result) {
-                    is ScanResult.Recognized ->
-                        RecognizedCard(result, if (scanMode == ScanMode.QR) "QR" else "Wajah")
-                    is ScanResult.Unknown    -> UnknownCard(result)
-                    is ScanResult.NoFace     ->
+                label = "bottomHint"
+            ) {
+                when (val result = scanResult) {
+                    is ScanResult.Scanning -> ProcessingCard()
+                    is ScanResult.NoFace ->
                         HintCard(if (scanMode == ScanMode.QR) "Arahkan kamera ke kode QR peserta" else "Arahkan wajah ke kamera")
-                    is ScanResult.ModelNotReady -> ErrorCard("Model FaceNet belum siap. Pastikan file facenet.tflite ada di assets/")
-                    is ScanResult.NoActiveSession -> ErrorCard("Tidak ada sesi aktif. Aktifkan sesi di server terlebih dahulu.")
-                    is ScanResult.Error      -> ErrorCard(result.message)
-                    is ScanResult.Scanning   -> ProcessingCard()
-                    else                     ->
+                    else ->
                         HintCard(if (scanMode == ScanMode.QR) "Tunjukkan kartu QR ke kamera belakang" else "Arahkan wajah ke area kotak di atas")
                 }
             }
@@ -262,23 +276,25 @@ fun ScannerScreen(
 @Composable
 private fun RecognizedCard(result: ScanResult.Recognized, method: String = "Wajah") {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, CaiSuccess, RoundedCornerShape(16.dp)),
         colors   = CardDefaults.cardColors(
-            containerColor = CaiSuccess.copy(alpha = 0.15f)
+            containerColor = Color.Black.copy(alpha = 0.9f)
         ),
         shape    = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = null,
                 tint     = CaiSuccess,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(48.dp)
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     result.participantName,
@@ -286,18 +302,20 @@ private fun RecognizedCard(result: ScanResult.Recognized, method: String = "Waja
                     fontWeight = FontWeight.Bold,
                     color = CaiTextPrimary
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     result.groupName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = CaiTextSecondary
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "Confidence: ${result.confidence.toInt()}% · ${method}",
+                    "Cocok: ${result.confidence.toInt()}% · ${method}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = CaiSuccess
+                    color = CaiSuccess,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-            Text("✓", fontSize = 28.sp, color = CaiSuccess)
         }
     }
 }
@@ -305,18 +323,21 @@ private fun RecognizedCard(result: ScanResult.Recognized, method: String = "Waja
 @Composable
 private fun UnknownCard(result: ScanResult.Unknown) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(containerColor = CaiError.copy(alpha = 0.15f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, CaiError, RoundedCornerShape(16.dp)),
+        colors   = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.9f)),
         shape    = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.PersonOff, contentDescription = null, tint = CaiError, modifier = Modifier.size(40.dp))
-            Spacer(Modifier.width(12.dp))
+            Icon(Icons.Default.PersonOff, contentDescription = null, tint = CaiError, modifier = Modifier.size(48.dp))
+            Spacer(Modifier.width(16.dp))
             Column {
-                Text("Wajah Tidak Dikenal", style = MaterialTheme.typography.titleMedium, color = CaiError)
+                Text("Wajah Tidak Dikenal", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = CaiError)
+                Spacer(Modifier.height(4.dp))
                 Text("Peserta belum terdaftar atau foto belum disync", style = MaterialTheme.typography.bodyMedium, color = CaiTextSecondary)
             }
         }
@@ -362,16 +383,18 @@ private fun ProcessingCard() {
 @Composable
 private fun ErrorCard(message: String) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors   = CardDefaults.cardColors(containerColor = CaiError.copy(alpha = 0.15f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, CaiError, RoundedCornerShape(16.dp)),
+        colors   = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.9f)),
         shape    = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Error, contentDescription = null, tint = CaiError)
-            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.Error, contentDescription = null, tint = CaiError, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(12.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = CaiError)
         }
     }
