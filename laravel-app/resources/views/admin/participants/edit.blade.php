@@ -331,6 +331,42 @@ function retake() {
     startCamera();
 }
 
+function resizeAndCompressImage(file, maxDimension = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            
+            // Calculate new dimensions
+            if (width > height) {
+                if (width > maxDimension) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                }
+            } else {
+                if (height > maxDimension) {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            const compressedBase64 = compressedDataUrl.split(',')[1];
+            resolve({ base64: compressedBase64, dataUrl: compressedDataUrl });
+        };
+        img.onerror = (err) => reject(err);
+    });
+}
+
 async function handleFaceFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -353,45 +389,40 @@ async function handleFaceFileUpload(event) {
     document.getElementById('captureBtn').disabled = true;
     document.getElementById('retakeBtn').style.display = 'none';
 
-    showResult('⏳ Sedang memproses file foto...', 'success');
+    showResult('⏳ Sedang memproses dan mengompres file foto...', 'success');
 
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const dataUrl = e.target.result;
-        const base64 = dataUrl.split(',')[1];
+    try {
+        const result = await resizeAndCompressImage(file, 800, 0.8);
         
         // Show preview
-        preview.src = dataUrl;
+        preview.src = result.dataUrl;
         preview.style.display = 'block';
 
         showResult('⏳ Mendaftarkan foto ke sistem...', 'success');
 
-        try {
-            const res = await fetch(`/admin/participants/${PARTICIPANT_ID}/register-face`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': CSRF_TOKEN,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ image: base64 })
-            });
+        const res = await fetch(`/admin/participants/${PARTICIPANT_ID}/register-face`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ image: result.base64 })
+        });
 
-            const data = await res.json();
+        const data = await res.json();
 
-            if (data.success) {
-                showResult('✅ ' + data.message + ' — Refresh halaman untuk melihat status terbaru.', 'success');
-                document.querySelector('.face-status-badge').className = 'face-status-badge ok';
-                document.querySelector('.face-status-badge').textContent = '✅ Wajah sudah terdaftar di sistem';
-                document.querySelector('.face-section').classList.remove('unregistered');
-            } else {
-                showResult('❌ Gagal: ' + data.message, 'error');
-            }
-        } catch(err) {
-            showResult('❌ Error koneksi: ' + err.message, 'error');
+        if (data.success) {
+            showResult('✅ ' + data.message + ' — Refresh halaman untuk melihat status terbaru.', 'success');
+            document.querySelector('.face-status-badge').className = 'face-status-badge ok';
+            document.querySelector('.face-status-badge').textContent = '✅ Wajah sudah terdaftar di sistem';
+            document.querySelector('.face-section').classList.remove('unregistered');
+        } else {
+            showResult('❌ Gagal: ' + data.message, 'error');
         }
-    };
-    reader.readAsDataURL(file);
+    } catch(err) {
+        showResult('❌ Error proses/koneksi: ' + err.message, 'error');
+    }
 }
 
 function showResult(msg, type) {
