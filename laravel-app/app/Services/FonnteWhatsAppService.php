@@ -232,7 +232,7 @@ class FonnteWhatsAppService
 
         $stats = $group->getAttendanceStats($session->id);
         $endTime = \Carbon\Carbon::parse($session->date->format('Y-m-d') . ' ' . $session->end_time);
-        $minutesLeft = max(0, now()->diffInMinutes($endTime, false));
+        $minutesLeft = (int) max(0, round(now()->diffInMinutes($endTime, false)));
 
         // Gender stats
         $totalMale = $participants->filter(fn($p) => $p->gender === 'Laki-laki')->count();
