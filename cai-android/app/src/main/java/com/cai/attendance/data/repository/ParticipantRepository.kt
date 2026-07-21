@@ -7,6 +7,7 @@ import android.util.Log
 import com.cai.attendance.data.local.dao.ParticipantDao
 import com.cai.attendance.data.local.entity.ParticipantEntity
 import com.cai.attendance.data.remote.ApiService
+import com.cai.attendance.data.remote.dto.CreateParticipantRequest
 import com.cai.attendance.ml.FaceDetectorHelper
 import com.cai.attendance.ml.FaceMatcher
 import com.cai.attendance.ml.FaceNetModel
