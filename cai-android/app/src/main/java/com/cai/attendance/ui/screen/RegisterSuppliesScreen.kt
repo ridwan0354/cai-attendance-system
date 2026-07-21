@@ -93,8 +93,15 @@ fun RegisterSuppliesScreen(
                             fontWeight = FontWeight.Bold,
                             color = CaiTextPrimary
                         )
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = "Kelompok: ${scannedData.groupName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CaiTextSecondary
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "No. WA: ${scannedData.phone}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = CaiTextSecondary
                         )

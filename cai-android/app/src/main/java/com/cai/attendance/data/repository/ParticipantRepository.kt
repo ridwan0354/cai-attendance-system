@@ -180,7 +180,9 @@ class ParticipantRepository @Inject constructor(
                     photoPath     = photoPath,
                     embeddingJson = embeddingJson,
                     qrCode        = dto.qrCode,
-                    updatedAt     = dto.updatedAt
+                    updatedAt     = dto.updatedAt,
+                    phone         = dto.phone ?: "",
+                    gender        = dto.gender ?: "Laki-laki"
                 )
                 participantDao.insert(entity)
             }
@@ -391,12 +393,61 @@ class ParticipantRepository @Inject constructor(
                     photoPath = null,
                     embeddingJson = null,
                     qrCode = dto.qrCode,
-                    updatedAt = dto.updatedAt
+                    updatedAt = dto.updatedAt,
+                    phone = dto.phone ?: "",
+                    gender = dto.gender ?: "Laki-laki"
                 )
                 participantDao.insert(entity)
                 Result.success(entity)
             } else {
                 Result.failure(Exception(response.body()?.message ?: "Gagal menambah peserta di server: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateParticipant(
+        id: Int,
+        name: String,
+        groupId: Int,
+        gender: String,
+        phone: String,
+        qrCode: String?
+    ): Result<ParticipantEntity> = withContext(Dispatchers.IO) {
+        try {
+            val request = CreateParticipantRequest(
+                name = name,
+                groupId = groupId,
+                gender = gender,
+                phone = phone,
+                qrCode = qrCode
+            )
+            val response = apiService.updateParticipant(id, request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val dto = response.body()?.participant ?: return@withContext Result.failure(Exception("Data peserta kosong"))
+                
+                val existing = participantDao.getById(id)
+                val entity = ParticipantEntity(
+                    id = dto.id,
+                    name = dto.name,
+                    nik = dto.nik,
+                    groupId = dto.groupId,
+                    groupName = dto.groupName ?: "",
+                    groupColor = dto.groupColor ?: "#0052cc",
+                    hasPhoto = dto.hasPhoto,
+                    faceRegistered = dto.faceRegistered,
+                    photoPath = existing?.photoPath,
+                    embeddingJson = existing?.embeddingJson,
+                    qrCode = dto.qrCode,
+                    updatedAt = dto.updatedAt,
+                    phone = dto.phone ?: "",
+                    gender = dto.gender ?: "Laki-laki"
+                )
+                participantDao.insert(entity)
+                Result.success(entity)
+            } else {
+                Result.failure(Exception(response.body()?.message ?: "Gagal memperbarui peserta di server: ${response.message()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

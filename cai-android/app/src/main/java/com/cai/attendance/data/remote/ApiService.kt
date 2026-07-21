@@ -84,4 +84,11 @@ interface ApiService {
     suspend fun createParticipant(
         @Body body: CreateParticipantRequest
     ): Response<CreateParticipantResponse>
+
+    /** Update data peserta */
+    @PUT("api/mobile/participants/{id}")
+    suspend fun updateParticipant(
+        @Path("id") id: Int,
+        @Body body: CreateParticipantRequest
+    ): Response<CreateParticipantResponse>
 }

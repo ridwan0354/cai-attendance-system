@@ -21,5 +21,7 @@ data class ParticipantEntity(
     val embeddingJson: String?,    // JSON FloatArray 512-d dari FaceNet
     val qrCode: String?,           // ID QR Code unik peserta
     val updatedAt: String,
+    val phone: String,
+    val gender: String,
     val syncedAt: Long = System.currentTimeMillis()
 )

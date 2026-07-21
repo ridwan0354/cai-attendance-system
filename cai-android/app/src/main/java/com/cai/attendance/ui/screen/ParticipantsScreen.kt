@@ -44,6 +44,8 @@ fun ParticipantsScreen(
     val participants by viewModel.participantsList.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var participantToEdit by remember { mutableStateOf<ParticipantEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -115,7 +117,11 @@ fun ParticipantsScreen(
                     items(participants, key = { it.id }) { participant ->
                         ParticipantRow(
                             participant = participant,
-                            onRegisterClick = { onNavigateToRegister(participant.id, participant.name) }
+                            onRegisterClick = { onNavigateToRegister(participant.id, participant.name) },
+                            onEditClick = {
+                                participantToEdit = participant
+                                showEditDialog = true
+                            }
                         )
                     }
                 }
@@ -380,6 +386,259 @@ fun ParticipantsScreen(
                     Text("Batal", color = CaiTextSecondary)
                 }
             },
+        )
+    }
+
+    // ── Dialog Edit Peserta ────────────────────────────────────────────────
+    if (showEditDialog && participantToEdit != null) {
+        val p = participantToEdit!!
+        var name by remember(p.id) { mutableStateOf(p.name) }
+        var phone by remember(p.id) { mutableStateOf(p.phone) }
+        var qrCode by remember(p.id) { mutableStateOf(p.qrCode ?: "") }
+        var selectedGender by remember(p.id) { mutableStateOf(p.gender) }
+        val groups by viewModel.groups.collectAsState()
+        val isLoadingGroups by viewModel.isLoadingGroups.collectAsState()
+        val createState by viewModel.createState.collectAsState()
+        
+        var selectedGroup by remember(p.id, groups) { 
+            mutableStateOf(groups.find { it.id == p.groupId } ?: com.cai.attendance.data.remote.dto.GroupDto(p.groupId, p.groupName, p.groupColor))
+        }
+        var isGroupDropdownExpanded by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            viewModel.loadGroups { errorMessage ->
+                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!createState.isSaving) {
+                    showEditDialog = false
+                    viewModel.resetCreateState()
+                }
+            },
+            title = {
+                Text(
+                    text = "Edit Data Peserta",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = CaiTextPrimary
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Nama
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Nama Lengkap", color = CaiTextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CaiAccent,
+                            unfocusedBorderColor = CaiBorder,
+                            focusedTextColor = CaiTextPrimary,
+                            unfocusedTextColor = CaiTextPrimary
+                        )
+                    )
+
+                    // No HP / WhatsApp
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("Nomor HP (WhatsApp)", color = CaiTextSecondary) },
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CaiAccent,
+                            unfocusedBorderColor = CaiBorder,
+                            focusedTextColor = CaiTextPrimary,
+                            unfocusedTextColor = CaiTextPrimary
+                        )
+                    )
+
+                    // Gender (Radio Button)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Jenis Kelamin", style = MaterialTheme.typography.labelMedium, color = CaiTextSecondary)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedGender == "Laki-laki",
+                                    onClick = { selectedGender = "Laki-laki" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = CaiAccent)
+                                )
+                                Text("Laki-laki", color = CaiTextPrimary)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedGender == "Perempuan",
+                                    onClick = { selectedGender = "Perempuan" },
+                                    colors = RadioButtonDefaults.colors(selectedColor = CaiAccent)
+                                )
+                                Text("Perempuan", color = CaiTextPrimary)
+                            }
+                        }
+                    }
+
+                    // Kelompok (Dropdown)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Kelompok", style = MaterialTheme.typography.labelMedium, color = CaiTextSecondary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = selectedGroup.name,
+                                onValueChange = {},
+                                enabled = false,
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = CaiTextSecondary
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    disabledBorderColor = CaiBorder,
+                                    disabledTextColor = CaiTextPrimary,
+                                    disabledTrailingIconColor = CaiTextSecondary,
+                                    disabledLabelColor = CaiTextSecondary
+                                )
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { isGroupDropdownExpanded = true }
+                            )
+                            DropdownMenu(
+                                expanded = isGroupDropdownExpanded,
+                                onDismissRequest = { isGroupDropdownExpanded = false },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .background(CaiSurfaceCard)
+                            ) {
+                                if (isLoadingGroups) {
+                                    DropdownMenuItem(
+                                        text = { CircularProgressIndicator(modifier = Modifier.size(24.dp)) },
+                                        onClick = {}
+                                    )
+                                } else if (groups.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = { Text("Kelompok kosong (Gagal memuat)", color = CaiTextMuted) },
+                                        onClick = { isGroupDropdownExpanded = false }
+                                    )
+                                } else {
+                                    groups.forEach { group ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(12.dp)
+                                                            .background(
+                                                                try {
+                                                                    Color(android.graphics.Color.parseColor(group.color))
+                                                                } catch (e: Exception) {
+                                                                    CaiBlue
+                                                                },
+                                                                shape = CircleShape
+                                                            )
+                                                    )
+                                                    Text(group.name, color = CaiTextPrimary)
+                                                }
+                                            },
+                                            onClick = {
+                                                selectedGroup = group
+                                                isGroupDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // QR Code (Optional)
+                    OutlinedTextField(
+                        value = qrCode,
+                        onValueChange = { qrCode = it },
+                        label = { Text("Kode QR (Opsional)", color = CaiTextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CaiAccent,
+                            unfocusedBorderColor = CaiBorder,
+                            focusedTextColor = CaiTextPrimary,
+                            unfocusedTextColor = CaiTextPrimary
+                        )
+                    )
+
+                    if (createState.message.isNotBlank()) {
+                        Text(
+                            text = createState.message,
+                            color = if (createState.isSuccess == true) CaiSuccess else CaiError,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (name.isBlank()) {
+                            Toast.makeText(context, "Nama tidak boleh kosong", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        viewModel.updateParticipant(
+                            id = p.id,
+                            name = name,
+                            groupId = selectedGroup.id,
+                            gender = selectedGender,
+                            phone = phone,
+                            qrCode = qrCode.ifBlank { null }
+                        ) { success ->
+                            if (success) {
+                                Toast.makeText(context, "Peserta berhasil diperbarui!", Toast.LENGTH_SHORT).show()
+                                showEditDialog = false
+                                viewModel.resetCreateState()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CaiSuccess),
+                    enabled = !createState.isSaving
+                ) {
+                    if (createState.isSaving) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = CaiTextPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Text("Simpan Perubahan", color = CaiTextPrimary)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showEditDialog = false
+                        viewModel.resetCreateState()
+                    },
+                    enabled = !createState.isSaving
+                ) {
+                    Text("Batal", color = CaiTextSecondary)
+                }
+            },
             containerColor = CaiSurfaceCard,
             shape = RoundedCornerShape(20.dp)
         )
@@ -389,12 +648,15 @@ fun ParticipantsScreen(
 @Composable
 private fun ParticipantRow(
     participant: ParticipantEntity,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
+    onEditClick: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = CaiSurfaceCard),
         shape  = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEditClick() }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

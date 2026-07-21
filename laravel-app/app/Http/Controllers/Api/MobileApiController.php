@@ -71,6 +71,7 @@ class MobileApiController extends Controller
                 'id', 'name', 'nik', 'group_id',
                 'photo_path', 'face_registered',
                 'updated_at', 'created_at',
+                'phone', 'gender',
             ]);
 
         // Incremental sync: hanya peserta yang diperbarui sejak timestamp tertentu
@@ -105,6 +106,8 @@ class MobileApiController extends Controller
                 'photo_hash'      => $hasPhoto ? md5_file($photoPath) : null,
                 'updated_at'      => $p->updated_at?->toIso8601String(),
                 'qr_code'         => $p->qr_code,
+                'phone'           => $p->phone,
+                'gender'          => $p->gender,
             ];
         });
 
@@ -456,8 +459,80 @@ class MobileApiController extends Controller
                 'photo_hash'      => null,
                 'updated_at'      => $participant->updated_at?->toIso8601String(),
                 'qr_code'         => $participant->qr_code,
+                'phone'           => $participant->phone,
+                'gender'          => $participant->gender,
             ],
         ], 201);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PUT /api/mobile/participants/{id}
+    // Update data peserta via Mobile App
+    // ─────────────────────────────────────────────────────────────────────────
+    public function updateParticipant(Request $request, int $id): JsonResponse
+    {
+        if (!$this->checkApiKey($request)) {
+            return $this->unauthorizedResponse();
+        }
+
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'group_id' => 'required|exists:groups,id',
+            'gender'   => 'required|string|in:Laki-laki,Perempuan',
+            'phone'    => 'required|string|max:20',
+            'qr_code'  => 'nullable|string|max:100',
+        ]);
+
+        $participant = Participant::find($id);
+        if (!$participant) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Peserta tidak ditemukan.',
+            ], 404);
+        }
+
+        // Jika QR Code berubah, pastikan tidak duplikat dengan peserta lain
+        if ($request->input('qr_code') !== $participant->qr_code) {
+            $duplicate = Participant::where('qr_code', $request->input('qr_code'))
+                ->where('id', '!=', $id)
+                ->exists();
+            if ($duplicate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'QR Code sudah digunakan oleh peserta lain.',
+                ], 422);
+            }
+        }
+
+        $participant->update([
+            'name'     => $request->input('name'),
+            'group_id' => $request->input('group_id'),
+            'gender'   => $request->input('gender'),
+            'phone'    => $request->input('phone'),
+            'qr_code'  => $request->input('qr_code'),
+        ]);
+
+        $participant->load('group');
+
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Data peserta berhasil diperbarui.',
+            'participant' => [
+                'id'              => $participant->id,
+                'name'            => $participant->name,
+                'nik'             => $participant->nik,
+                'group_id'        => $participant->group_id,
+                'group_name'      => $participant->group?->name ?? '',
+                'group_color'     => $participant->group?->color ?? '#1E5FBB',
+                'face_registered' => $participant->face_registered,
+                'has_photo'       => file_exists(base_path('../python-face-service/face_db/' . $participant->id . '/photo.jpg')),
+                'photo_hash'      => null,
+                'updated_at'      => $participant->updated_at?->toIso8601String(),
+                'qr_code'         => $participant->qr_code,
+                'phone'           => $participant->phone,
+                'gender'          => $participant->gender,
+            ],
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

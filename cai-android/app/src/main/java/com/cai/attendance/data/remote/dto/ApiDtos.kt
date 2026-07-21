@@ -23,7 +23,9 @@ data class ParticipantDto(
     @SerializedName("has_photo")       val hasPhoto: Boolean,
     @SerializedName("photo_hash")      val photoHash: String?,
     @SerializedName("updated_at")      val updatedAt: String,
-    @SerializedName("qr_code")         val qrCode: String?
+    @SerializedName("qr_code")         val qrCode: String?,
+    @SerializedName("phone")           val phone: String? = "",
+    @SerializedName("gender")          val gender: String? = ""
 )
 
 /** Response dari GET /api/mobile/sessions/active */

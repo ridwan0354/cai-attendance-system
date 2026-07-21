@@ -89,6 +89,9 @@ Route::prefix('api/mobile')->name('api.mobile.')->group(function () {
     // Tambah peserta baru
     Route::post('participants', [MobileApiController::class, 'storeParticipant'])->name('participants.store');
 
+    // Update data peserta
+    Route::put('participants/{id}', [MobileApiController::class, 'updateParticipant'])->name('participants.update');
+
     // Daftar kelompok peserta
     Route::get('groups', [MobileApiController::class, 'groups'])->name('groups');
 

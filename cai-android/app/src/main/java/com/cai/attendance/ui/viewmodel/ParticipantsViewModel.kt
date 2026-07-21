@@ -219,6 +219,39 @@ class ParticipantsViewModel @Inject constructor(
         }
     }
 
+    fun updateParticipant(
+        id: Int,
+        name: String,
+        groupId: Int,
+        gender: String,
+        phone: String,
+        qrCode: String?,
+        onComplete: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            _createState.value = CreateParticipantUiState(isSaving = true, message = "Memperbarui peserta…")
+            val result = participantRepo.updateParticipant(id, name, groupId, gender, phone, qrCode)
+            result.fold(
+                onSuccess = {
+                    _createState.value = CreateParticipantUiState(
+                        isSaving = false,
+                        isSuccess = true,
+                        message = "Peserta berhasil diperbarui"
+                    )
+                    onComplete(true)
+                },
+                onFailure = { err ->
+                    _createState.value = CreateParticipantUiState(
+                        isSaving = false,
+                        isSuccess = false,
+                        message = err.message ?: "Gagal memperbarui peserta"
+                    )
+                    onComplete(false)
+                }
+            )
+        }
+    }
+
     fun resetCreateState() {
         _createState.value = CreateParticipantUiState()
     }

@@ -34,6 +34,7 @@ sealed class SuppliesScanResult {
         val participantId: Int,
         val participantName: String,
         val groupName: String,
+        val phone: String,
         val supplies: List<com.cai.attendance.data.remote.dto.SupplyDto>
     ) : SuppliesScanResult()
     
@@ -180,6 +181,7 @@ class RegisterSuppliesViewModel @Inject constructor(
                             participantId   = participant.id,
                             participantName = participant.name,
                             groupName       = participant.groupName,
+                            phone           = participant.phone,
                             supplies        = processedSupplies
                         )
                         startCooldown()
