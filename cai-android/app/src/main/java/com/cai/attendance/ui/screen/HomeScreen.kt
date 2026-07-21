@@ -39,6 +39,10 @@ fun HomeScreen(
     val pendingCount by viewModel.pendingCount.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        viewModel.loadStats()
+    }
+
     // Logout confirmation dialog
     if (showLogoutDialog) {
         AlertDialog(

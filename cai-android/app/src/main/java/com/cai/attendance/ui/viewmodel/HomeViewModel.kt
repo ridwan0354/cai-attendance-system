@@ -48,14 +48,13 @@ class HomeViewModel @Inject constructor(
     fun loadStats() {
         viewModelScope.launch {
             val (total, withPhoto, withEmb) = participantRepo.getStats()
-            preferences.serverUrl.collect { url ->
-                _uiState.value = HomeUiState(
-                    totalParticipants  = total,
-                    totalWithPhoto     = withPhoto,
-                    totalWithEmbedding = withEmb,
-                    serverUrl          = url,
-                )
-            }
+            val url = preferences.serverUrl.first()
+            _uiState.value = HomeUiState(
+                totalParticipants  = total,
+                totalWithPhoto     = withPhoto,
+                totalWithEmbedding = withEmb,
+                serverUrl          = url,
+            )
         }
     }
 
