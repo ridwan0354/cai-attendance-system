@@ -188,9 +188,9 @@ class ParticipantRepository @Inject constructor(
                 participantDao.insert(entity)
             }
 
-            // 3. Bersihkan data peserta lokal yang sudah dihapus di server VPS
+            // 3. Bersihkan data peserta lokal yang sudah dihapus di server VPS (HANYA saat full sync)
             val serverIds = allParticipantDtos.map { it.id }
-            if (serverIds.isNotEmpty()) {
+            if (sinceTimestamp == null && serverIds.isNotEmpty()) {
                 val localParticipants = participantDao.getAll()
                 for (local in localParticipants) {
                     if (local.id !in serverIds) {
