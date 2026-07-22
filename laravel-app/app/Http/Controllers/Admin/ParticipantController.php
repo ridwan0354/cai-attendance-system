@@ -50,6 +50,15 @@ class ParticipantController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('qr_code')) {
+            $qrCode = trim((string)$request->input('qr_code'));
+            if ($qrCode === '-' || $qrCode === '' || strtolower($qrCode) === 'null') {
+                $request->merge(['qr_code' => null]);
+            } else {
+                $request->merge(['qr_code' => $qrCode]);
+            }
+        }
+
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'group_id'    => 'required|exists:groups,id',
@@ -116,6 +125,15 @@ class ParticipantController extends Controller
 
     public function update(Request $request, Participant $participant)
     {
+        if ($request->has('qr_code')) {
+            $qrCode = trim((string)$request->input('qr_code'));
+            if ($qrCode === '-' || $qrCode === '' || strtolower($qrCode) === 'null') {
+                $request->merge(['qr_code' => null]);
+            } else {
+                $request->merge(['qr_code' => $qrCode]);
+            }
+        }
+
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
             'group_id' => 'required|exists:groups,id',

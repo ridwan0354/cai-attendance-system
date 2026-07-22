@@ -33,6 +33,17 @@
 <div class="admin-layout">
     <h1 style="font-size:1.2rem;font-weight:800;margin-bottom:1.25rem;">+ Tambah Peserta</h1>
 
+    @if($errors->any())
+        <div style="background:var(--danger-lt);border:1px solid var(--danger);color:var(--danger);padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.875rem;">
+            <strong>⚠️ Gagal menyimpan data:</strong>
+            <ul style="margin-top: 0.35rem; margin-bottom: 0; padding-left: 1.2rem;">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="card">
         <div class="card-body">
             <form action="{{ route('admin.participants.store') }}" method="POST" enctype="multipart/form-data">

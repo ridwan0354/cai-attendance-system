@@ -425,6 +425,15 @@ class MobileApiController extends Controller
             return $this->unauthorizedResponse();
         }
 
+        if ($request->has('qr_code')) {
+            $qrCode = trim((string)$request->input('qr_code'));
+            if ($qrCode === '-' || $qrCode === '' || strtolower($qrCode) === 'null') {
+                $request->merge(['qr_code' => null]);
+            } else {
+                $request->merge(['qr_code' => $qrCode]);
+            }
+        }
+
         $request->validate([
             'name'     => 'required|string|max:255',
             'group_id' => 'required|exists:groups,id',
@@ -475,6 +484,15 @@ class MobileApiController extends Controller
             return $this->unauthorizedResponse();
         }
 
+        if ($request->has('qr_code')) {
+            $qrCode = trim((string)$request->input('qr_code'));
+            if ($qrCode === '-' || $qrCode === '' || strtolower($qrCode) === 'null') {
+                $request->merge(['qr_code' => null]);
+            } else {
+                $request->merge(['qr_code' => $qrCode]);
+            }
+        }
+
         $request->validate([
             'name'     => 'required|string|max:255',
             'group_id' => 'required|exists:groups,id',
@@ -492,7 +510,7 @@ class MobileApiController extends Controller
         }
 
         // Jika QR Code berubah, pastikan tidak duplikat dengan peserta lain
-        if ($request->input('qr_code') !== $participant->qr_code) {
+        if ($request->input('qr_code') && $request->input('qr_code') !== $participant->qr_code) {
             $duplicate = Participant::where('qr_code', $request->input('qr_code'))
                 ->where('id', '!=', $id)
                 ->exists();
