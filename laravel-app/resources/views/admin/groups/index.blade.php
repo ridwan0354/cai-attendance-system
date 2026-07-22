@@ -22,7 +22,7 @@
         <div class="card" style="border-top: 4px solid {{ $g->color }};">
             <div class="card-body">
                 <div style="font-weight:700;font-size:.95rem;margin-bottom:.25rem;">{{ $g->name }}</div>
-                <div style="font-size:.75rem;color:var(--neutral-500);">{{ $g->region_code }} • {{ $g->participants_count }} peserta</div>
+                <div style="font-size:.75rem;color:var(--neutral-500);">{{ $g->region_code }} • {{ $g->participants_count }} {{ stripos($g->name, 'panitia') !== false ? 'panitia' : 'peserta' }}</div>
                 <div style="font-size:.8rem;margin-top:.5rem;">👤 {{ $g->pembina_name }}</div>
                 <div style="font-size:.78rem;color:var(--neutral-500);">📱 {{ $g->pembina_phone }}</div>
                 <div style="display:flex;gap:.5rem;margin-top:.75rem;">

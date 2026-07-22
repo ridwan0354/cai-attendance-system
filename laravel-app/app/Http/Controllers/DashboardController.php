@@ -26,9 +26,9 @@ class DashboardController extends Controller
         $groups = Group::withCount('participants')->get();
         $faceServiceHealthy = $this->faceService->isHealthy();
 
-        $totalMale = Participant::where('gender', 'Laki-laki')->count();
-        $totalFemale = Participant::where('gender', 'Perempuan')->count();
-        $totalParticipants = Participant::count();
+        $totalMale = Participant::excludePanitia()->where('gender', 'Laki-laki')->count();
+        $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
+        $totalParticipants = Participant::excludePanitia()->count();
 
         return view('dashboard.index', compact(
             'activeSession', 'sessions', 'groups', 'faceServiceHealthy',
@@ -52,8 +52,10 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'No active session']);
         }
 
-        $totalParticipants = Participant::count();
-        $totalPresent = Attendance::where('session_id', $session->id)->count();
+        $totalParticipants = Participant::excludePanitia()->count();
+        $totalPresent = Attendance::where('session_id', $session->id)
+            ->whereHas('participant.group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"))
+            ->count();
 
         $groups = Group::with(['participants.attendances' => function ($q) use ($session) {
             $q->where('session_id', $session->id);
@@ -86,8 +88,8 @@ class DashboardController extends Controller
                 'method'      => $a->method,
             ]);
 
-        $totalMale = Participant::where('gender', 'Laki-laki')->count();
-        $totalFemale = Participant::where('gender', 'Perempuan')->count();
+        $totalMale = Participant::excludePanitia()->where('gender', 'Laki-laki')->count();
+        $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
 
         return response()->json([
             'success'           => true,

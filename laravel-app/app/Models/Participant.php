@@ -57,4 +57,14 @@ class Participant extends Model
     {
         return $this->belongsToMany(Supply::class);
     }
+
+    /**
+     * Scope query to exclude members of PANITIA group (only real event participants).
+     */
+    public function scopeExcludePanitia($query)
+    {
+        return $query->whereHas('group', function ($q) {
+            $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'");
+        });
+    }
 }
