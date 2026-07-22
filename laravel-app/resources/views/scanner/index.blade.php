@@ -634,82 +634,40 @@ function playSuccessSound() {
     osc.start(); osc.stop(audioCtx.currentTime + 0.4);
 }
 
-// ── Text-to-Speech greeting (iOS-safe) ───────────────────────────────────────
-let ttsPrimed = false;
-let ttsVoicesReady = false;
-let ttsPendingName = null;
-
-// Pre-load voices list
-function loadTTSVoices() {
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        ttsVoicesReady = true;
-    }
-}
-if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = () => {
-        ttsVoicesReady = true;
-        loadTTSVoices();
-        // If there was a pending greeting while voices weren't ready, say it now
-        if (ttsPendingName) {
-            const name = ttsPendingName;
-            ttsPendingName = null;
-            speakWelcome(name);
-        }
-    };
-    loadTTSVoices();
-
-    // iOS bug fix: speechSynthesis pauses/freezes after ~15s of inactivity
-    // Keep it alive with a silent periodic resume
-    setInterval(() => {
-        if (window.speechSynthesis.speaking) return;
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-    }, 10000);
-}
-
-// Call this on FIRST user touch to unlock iOS audio context
-function primeTTS() {
-    if (ttsPrimed || !window.speechSynthesis) return;
-    ttsPrimed = true;
-    const silent = new SpeechSynthesisUtterance(' ');
-    silent.volume = 0;
-    silent.rate = 10;
-    window.speechSynthesis.speak(silent);
-}
-document.addEventListener('touchstart', primeTTS, { once: true, passive: true });
-document.addEventListener('click', primeTTS, { once: true });
-
+// ── Text-to-Speech greeting ───────────────────────────────────────────────────
 function speakWelcome(name) {
     if (!window.speechSynthesis) return;
 
-    // If TTS not primed yet (iOS), queue the name and wait
-    if (!ttsPrimed) {
-        ttsPendingName = name;
-        return;
-    }
-
+    // Stop any speech already in progress
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(`Selamat datang, ${name}`);
-    utterance.lang = 'id-ID';
-    utterance.rate = 0.92;
-    utterance.pitch = 1.05;
-    utterance.volume = 1;
+    const doSpeak = () => {
+        const utterance = new SpeechSynthesisUtterance(`Selamat datang, ${name}`);
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.92;
+        utterance.pitch = 1.05;
+        utterance.volume = 1;
 
-    // Pick Indonesian or Malay voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(v => v.lang.startsWith('id-')) ||
-                    voices.find(v => v.lang.startsWith('id')) ||
-                    voices.find(v => v.lang.startsWith('ms')) ||
-                    null;
-    if (idVoice) utterance.voice = idVoice;
+        // Pilih suara Bahasa Indonesia / Melayu jika tersedia
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang === 'id-ID') ||
+                        voices.find(v => v.lang.startsWith('id')) ||
+                        voices.find(v => v.lang.startsWith('ms')) ||
+                        null;
+        if (idVoice) utterance.voice = idVoice;
 
-    if (ttsVoicesReady) {
         window.speechSynthesis.speak(utterance);
+    };
+
+    // Voices mungkin belum siap saat halaman pertama dibuka
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+        doSpeak();
     } else {
-        // Voices not loaded yet — queue and wait
-        ttsPendingName = name;
+        window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.onvoiceschanged = null;
+            doSpeak();
+        };
     }
 }
 
