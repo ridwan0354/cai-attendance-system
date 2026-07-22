@@ -30,9 +30,27 @@ class DashboardController extends Controller
         $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
         $totalParticipants = Participant::excludePanitia()->count();
 
+        $sessionComparisonStats = $sessions->map(function ($s) use ($totalParticipants) {
+            $presentCount = Attendance::where('session_id', $s->id)
+                ->whereHas('participant.group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"))
+                ->count();
+            return [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'day_number' => $s->day_number,
+                'date'       => \Carbon\Carbon::parse($s->date)->format('d M'),
+                'start_time' => $s->start_time,
+                'end_time'   => $s->end_time,
+                'present'    => $presentCount,
+                'absent'     => max(0, $totalParticipants - $presentCount),
+                'percentage' => $totalParticipants > 0 ? round(($presentCount / $totalParticipants) * 100) : 0,
+                'is_active'  => (bool)$s->is_active,
+            ];
+        });
+
         return view('dashboard.index', compact(
             'activeSession', 'sessions', 'groups', 'faceServiceHealthy',
-            'totalMale', 'totalFemale', 'totalParticipants'
+            'totalMale', 'totalFemale', 'totalParticipants', 'sessionComparisonStats'
         ));
     }
 
@@ -91,9 +109,28 @@ class DashboardController extends Controller
         $totalMale = Participant::excludePanitia()->where('gender', 'Laki-laki')->count();
         $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
 
+        $allSessions = Session::orderBy('day_number')->orderBy('start_time')->get();
+        $sessionComparisonStats = $allSessions->map(function ($s) use ($totalParticipants) {
+            $presentCount = Attendance::where('session_id', $s->id)
+                ->whereHas('participant.group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"))
+                ->count();
+            return [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'day_number' => $s->day_number,
+                'date'       => \Carbon\Carbon::parse($s->date)->format('d M'),
+                'start_time' => $s->start_time,
+                'end_time'   => $s->end_time,
+                'present'    => $presentCount,
+                'absent'     => max(0, $totalParticipants - $presentCount),
+                'percentage' => $totalParticipants > 0 ? round(($presentCount / $totalParticipants) * 100) : 0,
+                'is_active'  => (bool)$s->is_active,
+            ];
+        });
+
         return response()->json([
-            'success'           => true,
-            'session'           => [
+            'success'            => true,
+            'session'            => [
                 'id'         => $session->id,
                 'name'       => $session->name,
                 'day'        => $session->day_number,
@@ -110,6 +147,7 @@ class DashboardController extends Controller
                 : 0,
             'groups'             => $groups,
             'recent_attendances' => $recentAttendances,
+            'session_stats'      => $sessionComparisonStats,
         ]);
     }
 

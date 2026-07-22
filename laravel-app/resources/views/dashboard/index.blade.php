@@ -312,16 +312,35 @@
             </div>
         </div>
 
+        <!-- Session Comparison Chart Card -->
+        <div class="card" style="margin-top: 1rem;">
+            <div class="card-header" style="display: flex; align-items: center; justify-content: space-between;">
+                <span class="card-title">📊 Grafik Perbandingan Kehadiran Per Sesi</span>
+                <span class="badge badge-primary">Semua Sesi</span>
+            </div>
+            <div class="card-body" style="padding: 1.25rem;">
+                <div style="height: 300px; position: relative;">
+                    <canvas id="sessionsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Event Sessions Card -->
         <div class="card" style="margin-top: 1rem;">
             <div class="card-header">
                 <span class="card-title">📅 Jadwal & Monitor Sesi Acara</span>
             </div>
             <div class="card-body" style="padding: 1rem;">
+                @php
+                    $sessionStatsById = collect($sessionComparisonStats)->keyBy('id');
+                @endphp
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem;">
                     @foreach($sessions as $session)
                         @php
                             $isCurrentActive = $activeSession && $activeSession->id === $session->id;
+                            $sStat = $sessionStatsById->get($session->id);
+                            $sPresent = $sStat['present'] ?? 0;
+                            $sPct = $sStat['percentage'] ?? 0;
                         @endphp
                         <div onclick="openSessionDetailModal({{ $session->id }}, '{{ addslashes($session->name) }}')" 
                              style="cursor: pointer; background: white; border: 1.5px solid {{ $isCurrentActive ? 'var(--primary)' : 'var(--neutral-200)' }}; border-radius: 8px; padding: 0.85rem; box-shadow: var(--shadow); position: relative; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s;"
@@ -339,6 +358,14 @@
                                 </div>
                                 <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 2px;">
                                     🕒 {{ $session->start_time }} – {{ $session->end_time }}
+                                </div>
+                                
+                                <div style="margin-top: 0.65rem; font-size: 0.72rem; color: var(--neutral-700); font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>👥 Hadir: <strong id="session-present-{{ $session->id }}">{{ $sPresent }}</strong>/{{ $totalParticipants }}</span>
+                                    <span id="session-pct-{{ $session->id }}" style="font-weight: 800; color: {{ $isCurrentActive ? 'var(--primary)' : 'var(--neutral-700)' }};">{{ $sPct }}%</span>
+                                </div>
+                                <div style="width: 100%; height: 5px; background: var(--neutral-150); border-radius: 4px; overflow: hidden; margin-top: 4px;">
+                                    <div id="session-bar-{{ $session->id }}" style="height: 100%; background: {{ $isCurrentActive ? 'var(--success)' : 'var(--primary)' }}; width: {{ $sPct }}%; transition: width 0.3s ease;"></div>
                                 </div>
                             </div>
                             
@@ -449,8 +476,112 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const SESSION_ID = {{ $activeSession?->id ?? 'null' }};
+const INITIAL_SESSION_STATS = @json($sessionComparisonStats);
+let sessionsChart = null;
+
+function initSessionsChart(sessionStats) {
+    const ctx = document.getElementById('sessionsChart');
+    if (!ctx || !sessionStats || sessionStats.length === 0) return;
+
+    const labels = sessionStats.map(s => s.name + ' (H-' + s.day_number + ')');
+    const presentData = sessionStats.map(s => s.present);
+    const absentData = sessionStats.map(s => s.absent);
+
+    sessionsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Peserta Hadir',
+                    data: presentData,
+                    backgroundColor: '#0052cc',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Belum Hadir',
+                    data: absentData,
+                    backgroundColor: '#e3e8ef',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        font: { family: 'Inter, sans-serif', weight: '600', size: 12 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const datasetLabel = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            const idx = context.dataIndex;
+                            const stat = sessionStats[idx];
+                            if (context.datasetIndex === 0) {
+                                return ` ✅ ${datasetLabel}: ${value} peserta (${stat ? stat.percentage : 0}%)`;
+                            } else {
+                                return ` ❌ ${datasetLabel}: ${value} peserta`;
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Inter, sans-serif', weight: '600', size: 11 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f4f5f7' },
+                    ticks: { precision: 0, font: { family: 'Inter, sans-serif', size: 11 } }
+                }
+            }
+        }
+    });
+}
+
+function updateSessionsChart(sessionStats) {
+    if (!sessionStats) return;
+
+    // Update mini indicators on session cards
+    sessionStats.forEach(s => {
+        const presEl = document.getElementById(`session-present-${s.id}`);
+        const pctEl = document.getElementById(`session-pct-${s.id}`);
+        const barEl = document.getElementById(`session-bar-${s.id}`);
+        if (presEl) presEl.textContent = s.present;
+        if (pctEl) pctEl.textContent = s.percentage + '%';
+        if (barEl) barEl.style.width = s.percentage + '%';
+    });
+
+    if (!sessionsChart) {
+        initSessionsChart(sessionStats);
+        return;
+    }
+
+    sessionsChart.data.labels = sessionStats.map(s => s.name + ' (H-' + s.day_number + ')');
+    sessionsChart.data.datasets[0].data = sessionStats.map(s => s.present);
+    sessionsChart.data.datasets[1].data = sessionStats.map(s => s.absent);
+    sessionsChart.update('none');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initSessionsChart(INITIAL_SESSION_STATS);
+});
 
 // ── Fetch & update stats ──────────────────────────────────────────────────────
 async function fetchStats() {
@@ -483,6 +614,11 @@ async function fetchStats() {
             if (pEl) pEl.textContent = g.present;
             if (aEl) aEl.textContent = g.absent;
         });
+
+        // Update session comparison chart & mini cards
+        if (data.session_stats) {
+            updateSessionsChart(data.session_stats);
+        }
 
         // Update live feed
         const list = document.getElementById('liveList');
