@@ -634,6 +634,40 @@ function playSuccessSound() {
     osc.start(); osc.stop(audioCtx.currentTime + 0.4);
 }
 
+// ── Text-to-Speech greeting ───────────────────────────────────────────────────
+function speakWelcome(name) {
+    if (!window.speechSynthesis) return;
+
+    // Cancel any speech currently in progress
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(`Selamat datang, ${name}`);
+    utterance.lang = 'id-ID';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.05;
+    utterance.volume = 1;
+
+    // Try to pick an Indonesian voice if available
+    const pickVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang.startsWith('id')) ||
+                        voices.find(v => v.lang.startsWith('ms')) ||
+                        null;
+        if (idVoice) utterance.voice = idVoice;
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // Voices may not be loaded yet on first call
+    if (window.speechSynthesis.getVoices().length > 0) {
+        pickVoice();
+    } else {
+        window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.onvoiceschanged = null;
+            pickVoice();
+        };
+    }
+}
+
 // ── Status helpers ────────────────────────────────────────────────────────────
 function setStatus(state, text) {
     statusDot.className = 'status-dot ' + state;
@@ -1245,8 +1279,9 @@ function handleRecognition(match) {
     flash.classList.add('flash');
     setTimeout(() => flash.classList.remove('flash'), 500);
 
-    // Sound
+    // Sound + TTS greeting
     playSuccessSound();
+    speakWelcome(match.participant_name);
 
     // Popup
     document.getElementById('popupName').textContent = match.participant_name;
