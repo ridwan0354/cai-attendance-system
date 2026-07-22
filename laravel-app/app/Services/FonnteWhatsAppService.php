@@ -111,6 +111,13 @@ class FonnteWhatsAppService
      */
     public function sendAttendanceReport(Group $group, Session $session): bool
     {
+        // Check toggle ON/OFF setting
+        $notifyEnabled = (string) \App\Models\Setting::getVal('notify_pembina_enabled', '1');
+        if ($notifyEnabled !== '1') {
+            Log::info("WA Attendance report to pembina disabled in settings. Skipping.");
+            return true;
+        }
+
         $message = $this->buildReportMessage($group, $session);
         $phone = $this->normalizePhone($group->pembina_phone);
 
@@ -148,6 +155,13 @@ class FonnteWhatsAppService
      */
     public function sendCheckInConfirmation(\App\Models\Attendance $attendance): bool
     {
+        // Check toggle ON/OFF setting
+        $notifyEnabled = (string) \App\Models\Setting::getVal('notify_peserta_enabled', '1');
+        if ($notifyEnabled !== '1') {
+            Log::info("WA Check-in confirmation to participant disabled in settings. Skipping.");
+            return true;
+        }
+
         $participant = $attendance->participant;
         if (!$participant || empty($participant->phone)) {
             Log::warning("No phone number found for participant {$participant?->id}. Skipping WA confirmation.");
@@ -177,19 +191,25 @@ class FonnteWhatsAppService
 
         $groupName = $participant->group?->name ?? 'Tidak Ada';
 
-        $message = "✅ *Konfirmasi Kehadiran CAI LOMBOK 2026*\n";
-        $message .= "━━━━━━━━━━━━━━━━━━━━\n\n";
-        $message .= "Halo *{$participant->name}*,\n";
-        $message .= "Kehadiran Anda berhasil tercatat di sistem kami:\n\n";
-        $message .= "📅 Sesi: *{$session->name}*\n";
-        $message .= "👥 Kelompok: *{$groupName}*\n";
-        $message .= "⏰ Waktu Absen: *{$attendance->check_in_time->format('H:i:s')}*\n";
-        $message .= "👤 Metode: *{$methodLabel}*\n\n";
-        $message .= "📸 *Jangan lupa cetak dokumentasi foto-foto keren kamu selama acara hanya dengan Rp10.000 saja!*\n";
-        $message .= "Kunjungi link berikut untuk mencetak: https://twibbon.galipatsistem.com/\n\n";
-        $message .= "━━━━━━━━━━━━━━━━━━━━\n";
-        $message .= "Terima kasih atas partisipasinya!\n\n";
-        $message .= "_Pesan otomatis - CAI Lombok 2026_";
+        // Load custom template or default template
+        $template = (string) \App\Models\Setting::getVal(
+            'peserta_message_template',
+            \App\Models\Setting::defaultPesertaTemplate()
+        );
+
+        $message = str_replace([
+            '{nama_peserta}', '{participant_name}',
+            '{nama_sesi}', '{session_name}',
+            '{kelompok}', '{group_name}',
+            '{jam_absen}', '{check_in_time}',
+            '{metode}', '{method}'
+        ], [
+            $participant->name, $participant->name,
+            $session->name, $session->name,
+            $groupName, $groupName,
+            $attendance->check_in_time->format('H:i:s'), $attendance->check_in_time->format('H:i:s'),
+            $methodLabel, $methodLabel
+        ], $template);
 
         // Log attempt (group_id is required by DB schema)
         $log = NotificationLog::create([
@@ -241,46 +261,54 @@ class FonnteWhatsAppService
         $totalFemale = $participants->filter(fn($p) => $p->gender === 'Perempuan')->count();
         $presentMale = $present->filter(fn($p) => $p->gender === 'Laki-laki')->count();
         $presentFemale = $present->filter(fn($p) => $p->gender === 'Perempuan')->count();
-        $absentMale = $absent->filter(fn($p) => $p->gender === 'Laki-laki')->count();
-        $absentFemale = $absent->filter(fn($p) => $p->gender === 'Perempuan')->count();
+        $absentMale = max(0, $totalMale - $presentMale);
+        $absentFemale = max(0, $totalFemale - $presentFemale);
 
-        $message = "📋 *Laporan Kehadiran CAI LOMBOK 2026*\n";
-        $message .= "━━━━━━━━━━━━━━━━━━━━\n";
-        $message .= "📅 Sesi: *{$session->name}*\n";
-        $message .= "👥 Kelompok: *{$group->name}*\n";
-        $message .= "🗓️ Hari ke-{$session->day_number} | " . $session->date->format('d M Y') . "\n\n";
-
-        $message .= "📊 *Rincian Utusan:*\n";
-        $message .= "- Total Laki-laki: *{$totalMale}*\n";
-        $message .= "- Total Perempuan: *{$totalFemale}*\n";
-        $message .= "- Total Peserta: *{$stats['total']}*\n\n";
-
-        $message .= "✅ *Sudah Hadir ({$stats['present']}):*\n";
-        $message .= "- Laki-laki: *{$presentMale}*\n";
-        $message .= "- Perempuan: *{$presentFemale}*\n\n";
-
-        $message .= "❌ *Belum Hadir ({$stats['absent']}):*\n";
-        $message .= "- Laki-laki: *{$absentMale}*\n";
-        $message .= "- Perempuan: *{$absentFemale}*\n\n";
-
-        // Absent list detailed
-        if ($absent->isNotEmpty()) {
-            $message .= "📝 *Daftar Peserta Belum Hadir:*\n";
+        if ($absent->isEmpty()) {
+            $absentListText = "🎉 Semua peserta telah hadir!";
+        } else {
             $no = 1;
+            $lines = [];
             foreach ($absent as $p) {
                 $gLabel = $p->gender === 'Laki-laki' ? 'L' : 'P';
-                $message .= "{$no}. {$p->name} ({$gLabel})\n";
+                $lines[] = "{$no}. {$p->name} ({$gLabel})";
                 $no++;
             }
-            $message .= "\n";
+            $absentListText = implode("\n", $lines);
         }
 
-        $message .= "━━━━━━━━━━━━━━━━━━━━\n";
-        $message .= "📊 Persentase Kehadiran: *{$stats['percentage']}%*\n";
-        $message .= "⏳ Sisa waktu sesi: *{$minutesLeft} menit*\n";
-        $message .= "\n_Pesan otomatis - CAI Lombok 2026_";
+        $template = (string) \App\Models\Setting::getVal(
+            'pembina_message_template',
+            \App\Models\Setting::defaultPembinaTemplate()
+        );
 
-        return $message;
+        return str_replace([
+            '{nama_sesi}', '{session_name}',
+            '{kelompok}', '{group_name}',
+            '{nama_pembina}', '{pembina_name}',
+            '{jam_absen}', '{check_in_time}',
+            '{total_peserta}', '{total_participants}',
+            '{jumlah_hadir}', '{present_count}',
+            '{jumlah_tidak_hadir}', '{absent_count}',
+            '{persentase}', '{percentage}',
+            '{hadir_laki_laki}', '{total_laki_laki}', '{absent_laki_laki}',
+            '{hadir_perempuan}', '{total_perempuan}', '{absent_perempuan}',
+            '{daftar_belum_hadir}', '{absent_list}',
+            '{sisa_menit}', '{minutes_left}'
+        ], [
+            $session->name, $session->name,
+            $group->name, $group->name,
+            $group->pembina_name ?? 'Pembina', $group->pembina_name ?? 'Pembina',
+            now()->format('H:i:s'), now()->format('H:i:s'),
+            $stats['total'], $stats['total'],
+            $stats['present'], $stats['present'],
+            $stats['absent'], $stats['absent'],
+            $stats['percentage'], $stats['percentage'],
+            $presentMale, $totalMale, $absentMale,
+            $presentFemale, $totalFemale, $absentFemale,
+            $absentListText, $absentListText,
+            $minutesLeft, $minutesLeft
+        ], $template);
     }
 
     /**
