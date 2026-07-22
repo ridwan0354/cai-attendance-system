@@ -49,21 +49,22 @@ fun ScannerScreen(
     // ── Text-to-Speech setup ──────────────────────────────────────────────────
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(context) {
-        val engine = TextToSpeech(context) { status ->
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                val result = engine.setLanguage(Locale("id", "ID"))
+                val result = engine?.setLanguage(Locale("id", "ID"))
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     // Fallback ke default jika Bahasa Indonesia tidak ada
-                    engine.setLanguage(Locale.getDefault())
+                    engine?.setLanguage(Locale.getDefault())
                 }
-                engine.setSpeechRate(0.92f)
-                engine.setPitch(1.05f)
+                engine?.setSpeechRate(0.92f)
+                engine?.setPitch(1.05f)
             }
         }
         tts = engine
         onDispose {
-            engine.stop()
-            engine.shutdown()
+            engine?.stop()
+            engine?.shutdown()
         }
     }
 
