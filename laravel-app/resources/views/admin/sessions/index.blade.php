@@ -57,7 +57,7 @@
                                 <span class="badge" style="background:var(--neutral-100);color:var(--neutral-500);">Tidak Aktif</span>
                             @endif
                         </td>
-                        <td style="padding:.7rem 1rem;font-size:.875rem;border-bottom:1px solid var(--neutral-100); display: flex; gap: 0.25rem; align-items: center;">
+                        <td style="padding:.7rem 1rem;font-size:.875rem;border-bottom:1px solid var(--neutral-100); display: flex; gap: 0.25rem; align-items: center; flex-wrap: wrap;">
                             @if(!$s->is_active)
                                 <form action="{{ route('admin.sessions.activate', $s) }}" method="POST" style="display:inline; margin: 0;">
                                     @csrf
@@ -71,6 +71,11 @@
                             @endif
                             <a href="{{ route('admin.sessions.edit', $s) }}" class="btn btn-outline btn-sm">Edit</a>
                             <button type="button" class="btn btn-outline btn-sm" onclick="openReportModal({{ $s->id }}, '{{ addslashes($s->name) }}')" style="border: 1px solid var(--primary); color: var(--primary); background: transparent;">✉️ Kirim Laporan</button>
+                            <form action="{{ route('admin.sessions.destroy', $s) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus sesi {{ addslashes($s->name) }}?')">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn btn-danger btn-sm">Hapus</button>
+                            </form>
                         </td>
                     </tr>
                     @endforeach

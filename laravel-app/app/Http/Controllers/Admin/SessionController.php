@@ -55,8 +55,9 @@ class SessionController extends Controller
 
     public function destroy(Session $session)
     {
+        $name = $session->name;
         $session->delete();
-        return redirect()->route('admin.sessions.index')->with('success', 'Sesi dihapus.');
+        return redirect()->route('admin.sessions.index')->with('success', "Sesi '{$name}' berhasil dihapus.");
     }
 
     public function activate(Session $session)
