@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Session;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SessionController extends Controller
 {
@@ -56,7 +57,13 @@ class SessionController extends Controller
     public function destroy(Session $session)
     {
         $name = $session->name;
-        $session->delete();
+
+        DB::transaction(function () use ($session) {
+            $session->attendances()->delete();
+            $session->notificationLogs()->delete();
+            $session->delete();
+        });
+
         return redirect()->route('admin.sessions.index')->with('success', "Sesi '{$name}' berhasil dihapus.");
     }
 
