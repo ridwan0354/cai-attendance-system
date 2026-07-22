@@ -97,7 +97,7 @@ class FaceRecognitionService
     public function registerFace(int $participantId, string $name, string $base64Image): array
     {
         try {
-            $response = Http::timeout(30) // Longer timeout for registration
+            $response = Http::timeout(120) // 2 minutes timeout for face registration & embedding generation
                 ->post("{$this->baseUrl}/register", [
                     'participant_id' => $participantId,
                     'name'           => $name,
