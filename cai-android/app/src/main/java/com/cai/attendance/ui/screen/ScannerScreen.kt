@@ -2,6 +2,7 @@ package com.cai.attendance.ui.screen
 
 import android.Manifest
 import android.graphics.Bitmap
+import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -30,6 +31,7 @@ import com.cai.attendance.ui.component.CameraPreviewView
 import com.cai.attendance.ui.theme.*
 import com.cai.attendance.ui.viewmodel.ScanResult
 import com.cai.attendance.ui.viewmodel.ScannerViewModel
+import java.util.Locale
 
 enum class ScanMode { FACE, QR }
 
@@ -43,6 +45,40 @@ fun ScannerScreen(
     val scanResult   by viewModel.scanResult.collectAsState()
     val activeSession by viewModel.activeSession.collectAsState()
     val isProcessing by viewModel.isProcessing.collectAsState()
+
+    // ── Text-to-Speech setup ──────────────────────────────────────────────────
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    DisposableEffect(context) {
+        val engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = engine.setLanguage(Locale("id", "ID"))
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    // Fallback ke default jika Bahasa Indonesia tidak ada
+                    engine.setLanguage(Locale.getDefault())
+                }
+                engine.setSpeechRate(0.92f)
+                engine.setPitch(1.05f)
+            }
+        }
+        tts = engine
+        onDispose {
+            engine.stop()
+            engine.shutdown()
+        }
+    }
+
+    // Ucapkan salam saat wajah/QR berhasil dikenali
+    LaunchedEffect(scanResult) {
+        val result = scanResult
+        if (result is ScanResult.Recognized) {
+            tts?.speak(
+                "Selamat datang, ${result.participantName}",
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "greet_${result.participantName}"
+            )
+        }
+    }
 
     // Mode scan: FACE (kamera depan) atau QR (kamera belakang)
     var scanMode by remember { mutableStateOf(ScanMode.FACE) }
