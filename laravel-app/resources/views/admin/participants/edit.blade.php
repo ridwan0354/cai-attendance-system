@@ -135,6 +135,9 @@
                     <button type="button" class="btn btn-outline btn-sm" onclick="retake()" id="retakeBtn" style="display:none;">
                         🔄 Ulangi
                     </button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteFacePhoto()" id="deleteFaceBtn" style="{{ $participant->face_registered ? 'display:inline-flex;' : 'display:none;' }}">
+                        🗑️ Hapus Foto Wajah
+                    </button>
                 </div>
 
                 <div class="register-result" id="registerResult"></div>
@@ -306,6 +309,7 @@ async function captureAndRegister() {
             document.querySelector('.face-status-badge').className = 'face-status-badge ok';
             document.querySelector('.face-status-badge').textContent = '✅ Wajah sudah terdaftar di sistem';
             document.querySelector('.face-section').classList.remove('unregistered');
+            document.getElementById('deleteFaceBtn').style.display = 'inline-flex';
         } else {
             showResult('❌ Gagal: ' + data.message, 'error');
             document.getElementById('retakeBtn').style.display = 'inline-flex';
@@ -417,11 +421,59 @@ async function handleFaceFileUpload(event) {
             document.querySelector('.face-status-badge').className = 'face-status-badge ok';
             document.querySelector('.face-status-badge').textContent = '✅ Wajah sudah terdaftar di sistem';
             document.querySelector('.face-section').classList.remove('unregistered');
+            document.getElementById('deleteFaceBtn').style.display = 'inline-flex';
         } else {
             showResult('❌ Gagal: ' + data.message, 'error');
         }
     } catch(err) {
         showResult('❌ Error proses/koneksi: ' + err.message, 'error');
+    }
+}
+
+async function deleteFacePhoto() {
+    if (!confirm('Apakah Anda yakin ingin menghapus foto wajah {{ addslashes($participant->name) }}? Status pendaftaran wajah akan di-reset.')) {
+        return;
+    }
+
+    const deleteBtn = document.getElementById('deleteFaceBtn');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = '⏳ Menghapus...';
+
+    try {
+        const res = await fetch(`/admin/participants/${PARTICIPANT_ID}/delete-face`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            }
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            showResult('✅ Foto wajah berhasil dihapus.', 'success');
+            
+            // Hide preview image
+            const preview = document.getElementById('capturePreview');
+            preview.src = '';
+            preview.style.display = 'none';
+            
+            // Hide delete button
+            deleteBtn.style.display = 'none';
+
+            // Update badge & styles
+            const badge = document.querySelector('.face-status-badge');
+            badge.className = 'face-status-badge no';
+            badge.textContent = '❌ Wajah belum terdaftar — kamera tidak bisa mengenali peserta ini';
+            document.querySelector('.face-section').classList.add('unregistered');
+        } else {
+            showResult('❌ Gagal menghapus foto wajah: ' + (data.message || 'Error'), 'error');
+        }
+    } catch(e) {
+        showResult('❌ Error koneksi: ' + e.message, 'error');
+    } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = '🗑️ Hapus Foto Wajah';
     }
 }
 

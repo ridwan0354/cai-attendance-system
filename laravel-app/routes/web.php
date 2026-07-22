@@ -32,6 +32,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::resource('participants', ParticipantController::class);
     Route::post('participants/{participant}/register-face', [ParticipantController::class, 'registerFace'])
         ->name('participants.register-face');
+    Route::delete('participants/{participant}/delete-face', [ParticipantController::class, 'deleteFace'])
+        ->name('participants.delete-face');
     Route::get('participants/{participant}/face-image', [ParticipantController::class, 'faceImage'])
         ->name('participants.face-image');
     Route::post('participants/{participant}/verify-checkin', [ParticipantController::class, 'verifyCheckIn'])

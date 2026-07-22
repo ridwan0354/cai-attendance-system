@@ -150,7 +150,10 @@ class ParticipantController extends Controller
         );
 
         if ($result['success'] ?? false) {
-            $participant->update(['face_registered' => true]);
+            $participant->update([
+                'face_registered' => true,
+                'updated_at'      => now(),
+            ]);
             return response()->json(['success' => true, 'message' => 'Wajah berhasil didaftarkan']);
         }
 
@@ -158,6 +161,41 @@ class ParticipantController extends Controller
             'success' => false,
             'message' => $result['error'] ?? 'Gagal mendaftarkan wajah'
         ], 422);
+    }
+
+    /**
+     * Delete/remove a participant's registered face photo.
+     * DELETE /admin/participants/{participant}/delete-face
+     */
+    public function deleteFace(Request $request, Participant $participant)
+    {
+        // 1. Delete physical files from Python face_db directory
+        $this->faceService->deleteFace($participant->id);
+
+        $localPhotoPath = base_path('../python-face-service/face_db/' . $participant->id . '/photo.jpg');
+        if (file_exists($localPhotoPath)) {
+            @unlink($localPhotoPath);
+        }
+        $localDir = base_path('../python-face-service/face_db/' . $participant->id);
+        if (is_dir($localDir)) {
+            @rmdir($localDir);
+        }
+
+        // 2. Reset face_registered status in DB and update timestamp
+        $participant->update([
+            'face_registered' => false,
+            'photo_path'      => null,
+            'updated_at'      => now(),
+        ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Foto wajah berhasil dihapus.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Foto wajah berhasil dihapus.');
     }
 
     /**
