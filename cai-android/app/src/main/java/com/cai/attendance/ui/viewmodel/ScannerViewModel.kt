@@ -31,6 +31,14 @@ sealed class ScanResult {
     object NoFace : ScanResult()
     object ModelNotReady : ScanResult()
     object NoActiveSession : ScanResult()
+    data class PendingConfirmation(
+        val participantId: Int,
+        val participantName: String,
+        val groupName: String,
+        val groupColor: String,
+        val confidence: Float,
+        val method: String
+    ) : ScanResult()
     data class Recognized(
         val participantName: String,
         val groupName: String,
@@ -97,7 +105,7 @@ class ScannerViewModel @Inject constructor(
      * Dipanggil ~1-2x per detik dari CameraX analyzer.
      */
     fun processFrame(bitmap: Bitmap) {
-        if (inCooldown || _isProcessing.value) return
+        if (inCooldown || _isProcessing.value || _scanResult.value is ScanResult.PendingConfirmation) return
         if (!faceNet.isReady) {
             _scanResult.value = ScanResult.ModelNotReady
             return
@@ -121,25 +129,15 @@ class ScannerViewModel @Inject constructor(
                         Log.d(TAG, "Detected QR/Barcode: $qrCodeValue")
                         val participant = participantRepo.findParticipantByCode(qrCodeValue)
                         if (participant != null) {
-                            attendanceRepo.recordAttendance(
+                            _scanResult.value = ScanResult.PendingConfirmation(
                                 participantId   = participant.id,
-                                sessionId       = session.id,
-                                participantName = participant.name,
-                                groupName       = participant.groupName,
-                                groupColor      = participant.groupColor,
-                                method          = "qr",
-                                confidenceScore = null,
-                            )
-
-                            _scanResult.value = ScanResult.Recognized(
                                 participantName = participant.name,
                                 groupName       = participant.groupName,
                                 groupColor      = participant.groupColor,
                                 confidence      = 100f,
-                                alreadyPresent  = false
+                                method          = "qr"
                             )
 
-                            startCooldown()
                             return@launch
                         } else {
                             Log.w(TAG, "Participant not found locally for code: $qrCodeValue")
@@ -186,30 +184,61 @@ class ScannerViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Match ditemukan! Catat absensi ke database local queue
+                // Match ditemukan! Tampilkan dialog konfirmasi ke pengguna lebih dahulu
                 val participant = matchResult.participant
                 val confidence  = matchResult.similarity
 
-                val recorded = attendanceRepo.recordAttendance(
+                _scanResult.value = ScanResult.PendingConfirmation(
                     participantId   = participant.id,
-                    sessionId       = session.id,
-                    participantName = participant.name,
-                    groupName       = participant.groupName,
-                    groupColor      = participant.groupColor,
-                    method          = "face",
-                    confidenceScore = confidence,
-                )
-
-                _scanResult.value = ScanResult.Recognized(
                     participantName = participant.name,
                     groupName       = participant.groupName,
                     groupColor      = participant.groupColor,
                     confidence      = FaceMatcher.similarityToConfidence(confidence),
-                    alreadyPresent  = false
+                    method          = "face"
                 )
 
-                // Cooldown agar tidak merekam terus menerus
-                startCooldown()
+            } catch (e: Exception) {
+                Log.e(TAG, "Processing error: ${e.message}")
+                _scanResult.value = ScanResult.Error("Error: ${e.message}")
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
+
+    fun confirmAttendance() {
+        val current = _scanResult.value
+        if (current is ScanResult.PendingConfirmation) {
+            val session = _activeSession.value ?: return
+            viewModelScope.launch(Dispatchers.IO) {
+                attendanceRepo.recordAttendance(
+                    participantId   = current.participantId,
+                    sessionId       = session.id,
+                    participantName = current.participantName,
+                    groupName       = current.groupName,
+                    groupColor      = current.groupColor,
+                    method          = current.method,
+                    confidenceScore = current.confidence,
+                )
+
+                withContext(Dispatchers.Main) {
+                    _scanResult.value = ScanResult.Recognized(
+                        participantName = current.participantName,
+                        groupName       = current.groupName,
+                        groupColor      = current.groupColor,
+                        confidence      = current.confidence,
+                        alreadyPresent  = false
+                    )
+                    startCooldown()
+                }
+            }
+        }
+    }
+
+    fun rejectConfirmation() {
+        _scanResult.value = ScanResult.Idle
+        startCooldown()
+    }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Processing error: ${e.message}")

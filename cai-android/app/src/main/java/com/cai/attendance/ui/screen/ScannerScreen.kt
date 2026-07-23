@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -32,6 +33,97 @@ import com.cai.attendance.ui.theme.*
 import com.cai.attendance.ui.viewmodel.ScanResult
 import com.cai.attendance.ui.viewmodel.ScannerViewModel
 import java.util.Locale
+
+@Composable
+private fun PendingConfirmationCard(
+    result: ScanResult.PendingConfirmation,
+    onConfirm: () -> Unit,
+    onReject: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, CaiAccent, RoundedCornerShape(16.dp)),
+        colors   = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.95f)),
+        shape    = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                Icons.Default.PersonSearch,
+                contentDescription = null,
+                tint = CaiAccent,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Konfirmasi Identitas",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Text(
+                "Apakah nama ini sesuai dengan Anda?",
+                style = MaterialTheme.typography.bodySmall,
+                color = CaiTextSecondary
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text(
+                        result.participantName,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = CaiSuccess
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Kelompok: ${result.groupName}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = CaiTextPrimary
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Kemiripan Wajah: ${result.confidence.toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = CaiAccent,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CaiError),
+                    border = BorderStroke(1.dp, CaiError)
+                ) {
+                    Text("❌ Bukan Saya", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = CaiAccent)
+                ) {
+                    Text("✅ Ya, Absen", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
 
 enum class ScanMode { FACE, QR }
 
@@ -255,18 +347,24 @@ fun ScannerScreen(
                 }
             }
 
-            // ── Center Popup for terminal scan states ─────────────────────
+            // ── Center Popup for terminal & confirmation scan states ───────────────
             AnimatedVisibility(
-                visible = scanResult is ScanResult.Recognized || scanResult is ScanResult.Unknown || scanResult is ScanResult.Error || scanResult is ScanResult.ModelNotReady || scanResult is ScanResult.NoActiveSession,
+                visible = scanResult is ScanResult.PendingConfirmation || scanResult is ScanResult.Recognized || scanResult is ScanResult.Unknown || scanResult is ScanResult.Error || scanResult is ScanResult.ModelNotReady || scanResult is ScanResult.NoActiveSession,
                 enter = fadeIn() + scaleIn(initialScale = 0.85f),
                 exit = fadeOut() + scaleOut(targetScale = 0.85f),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(32.dp)
+                    .padding(24.dp)
                     .widthIn(max = 400.dp),
                 label = "centerPopup"
             ) {
                 when (val result = scanResult) {
+                    is ScanResult.PendingConfirmation ->
+                        PendingConfirmationCard(
+                            result = result,
+                            onConfirm = viewModel::confirmAttendance,
+                            onReject  = viewModel::rejectConfirmation
+                        )
                     is ScanResult.Recognized ->
                         RecognizedCard(result, if (scanMode == ScanMode.QR) "QR" else "Wajah")
                     is ScanResult.Unknown -> UnknownCard(result)

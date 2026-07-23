@@ -474,22 +474,37 @@
             <div class="confidence" id="popupConfidence">Confidence: 95.2%</div>
         </div>
 
-        <!-- Sync Progress Modal -->
-        <div id="syncProgressModal" style="display: none; position: absolute; inset: 0; background: rgba(10, 14, 26, 0.95); z-index: 50; align-items: center; justify-content: center; flex-direction: column; color: white;">
-            <div style="background: #161e35; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2rem; width: 85%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem; animation: spin-logo 2s linear infinite;">🔄</div>
-                <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #fff;">Sinkronisasi Wajah Lokal</h3>
-                <p id="syncProgressText" style="font-size: 0.85rem; color: rgba(255,255,255,0.6); margin-bottom: 1.25rem;">Mengunduh data peserta...</p>
-                <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem;">
-                    <div id="syncProgressBar" style="width: 0%; height: 100%; background: #007aff; transition: width 0.2s;"></div>
+        <!-- Identity Confirmation Modal -->
+        <div id="confirmIdentityModal" style="display: none; position: absolute; inset: 0; background: rgba(10, 14, 26, 0.85); backdrop-filter: blur(4px); z-index: 60; align-items: center; justify-content: center; padding: 1rem;">
+            <div style="background: #161e35; border: 2px solid #007aff; border-radius: 16px; padding: 1.5rem; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.6); animation: popInModal 0.2s ease-out;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.25rem;">🔍</div>
+                <h3 style="font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem;">Konfirmasi Identitas</h3>
+                <p style="font-size: 0.78rem; color: rgba(255,255,255,0.7); margin-bottom: 1rem;">Apakah nama di bawah ini sesuai dengan Anda?</p>
+                
+                <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 0.9rem; margin-bottom: 1.25rem; text-align: left;">
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #00e676; line-height: 1.3;" id="confirmModalName">Ahmad Fauzi</div>
+                    <div style="font-size: 0.82rem; color: #e1e3ea; margin-top: 4px;" id="confirmModalGroup">Kelompok: Lombok Barat</div>
+                    <div style="font-size: 0.75rem; color: #00b0ff; margin-top: 6px; font-weight: 600;" id="confirmModalConfidence">Kemiripan Wajah: 85%</div>
                 </div>
-                <span id="syncProgressPercent" style="font-size: 0.8rem; color: #00e676; font-weight: bold;">0%</span>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <button type="button" onclick="cancelFaceConfirmation()" style="padding: 0.7rem; font-weight: 700; font-size: 0.82rem; border-radius: 8px; border: 1px solid #ff5252; background: rgba(255,82,82,0.15); color: #ff5252; cursor: pointer; transition: all 0.15s;">
+                        ❌ Bukan Saya
+                    </button>
+                    <button type="button" onclick="acceptFaceConfirmation()" style="padding: 0.7rem; font-weight: 700; font-size: 0.82rem; border-radius: 8px; border: none; background: #007aff; color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(0,122,255,0.4); transition: all 0.15s;">
+                        ✅ Ya, Absen
+                    </button>
+                </div>
             </div>
         </div>
         <style>
             @keyframes spin-logo {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
+            }
+            @keyframes popInModal {
+                from { transform: scale(0.85); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
             }
         </style>
 
@@ -948,6 +963,52 @@ function trackDetections(detections) {
     });
 }
 
+// ── Confirmation Modal Handlers ───────────────────────────────────────────────
+let pendingConfirmationMatch = null;
+let rejectedMatchIds = new Set();
+
+function showConfirmationModal(match) {
+    pendingConfirmationMatch = match;
+    document.getElementById('confirmModalName').textContent = match.participant_name;
+    document.getElementById('confirmModalGroup').textContent = 'Kelompok: ' + match.group_name;
+    document.getElementById('confirmModalConfidence').textContent = match.confidence_score ? `Kemiripan Wajah: ${match.confidence_score}%` : 'Metode QR';
+    
+    const modal = document.getElementById('confirmIdentityModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeConfirmationModal() {
+    const modal = document.getElementById('confirmIdentityModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function acceptFaceConfirmation() {
+    if (!pendingConfirmationMatch) return;
+    const match = pendingConfirmationMatch;
+    pendingConfirmationMatch = null;
+    closeConfirmationModal();
+
+    // Catat absensi ke database lokal & sync server
+    const checkedTime = new Date().toISOString();
+    await recordAttendanceLocally(match.participant_id, SESSION_ID, checkedTime, match.confidence_score);
+
+    // Berikan feedback visual & ucapkan salam suara TTS
+    handleRecognition(match);
+}
+
+function cancelFaceConfirmation() {
+    if (!pendingConfirmationMatch) return;
+    const pId = pendingConfirmationMatch.participant_id;
+    pendingConfirmationMatch = null;
+    closeConfirmationModal();
+
+    // Masukkan ke daftar abaikan sementara selama 10 detik
+    rejectedMatchIds.add(pId);
+    setTimeout(() => rejectedMatchIds.delete(pId), 10000);
+
+    showToast('⚠️ Absensi dibatalkan. Silakan posisikan ulang wajah.', 'warning');
+}
+
 // ── Pencocokan Wajah Lokal Instan menggunakan FaceMatcher ─────────────────────
 async function matchFaceLocally(face, descriptor) {
     if (!SESSION_ID || !faceMatcher || !descriptor) return;
@@ -980,9 +1041,16 @@ async function matchFaceLocally(face, descriptor) {
                 return;
             }
 
-            // Catat absensi secara lokal & upload background
-            const checkedTime = new Date().toISOString();
-            await recordAttendanceLocally(participantId, SESSION_ID, checkedTime, confidence);
+            // Cek jika penampakan ini baru ditolak oleh user
+            if (rejectedMatchIds.has(participantId)) {
+                currentFace.status = 'unknown';
+                return;
+            }
+
+            // Cek jika sedang menampilkan modal konfirmasi lain
+            if (pendingConfirmationMatch !== null) {
+                return;
+            }
 
             // Perbarui status wajah terlacak
             currentFace.status = 'recognized';
@@ -990,8 +1058,8 @@ async function matchFaceLocally(face, descriptor) {
             currentFace.group = participant.group_name;
             currentFace.color = participant.group_color;
 
-            // Berikan feedback visual & suara sukses secara instan!
-            handleRecognition({
+            // Tampilkan modal konfirmasi terlebih dahulu!
+            showConfirmationModal({
                 participant_id: participantId,
                 participant_name: participant.name,
                 group_name: participant.group_name,
