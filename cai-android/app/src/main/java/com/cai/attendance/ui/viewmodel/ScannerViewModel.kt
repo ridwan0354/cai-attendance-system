@@ -240,15 +240,6 @@ class ScannerViewModel @Inject constructor(
         startCooldown()
     }
 
-            } catch (e: Exception) {
-                Log.e(TAG, "Processing error: ${e.message}")
-                _scanResult.value = ScanResult.Error("Error: ${e.message}")
-            } finally {
-                _isProcessing.value = false
-            }
-        }
-    }
-
     fun refreshSession() {
         loadActiveSession()
     }
