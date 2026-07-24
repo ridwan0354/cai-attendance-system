@@ -29,10 +29,18 @@ class ParticipantController extends Controller
 
         if ($request->filled('registration_status')) {
             $status = $request->input('registration_status');
-            if ($status === 'registered') {
-                $query->whereNotNull('registered_at');
-            } elseif ($status === 'unregistered') {
-                $query->whereNull('registered_at');
+            if ($status === 'registered' || $status === 'registered_peserta') {
+                $query->whereNotNull('registered_at')
+                    ->whereHas('group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"));
+            } elseif ($status === 'unregistered' || $status === 'unregistered_peserta') {
+                $query->whereNull('registered_at')
+                    ->whereHas('group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"));
+            } elseif ($status === 'registered_panitia') {
+                $query->whereNotNull('registered_at')
+                    ->whereHas('group', fn($q) => $q->whereRaw("LOWER(name) LIKE '%panitia%'"));
+            } elseif ($status === 'unregistered_panitia') {
+                $query->whereNull('registered_at')
+                    ->whereHas('group', fn($q) => $q->whereRaw("LOWER(name) LIKE '%panitia%'"));
             }
         }
 

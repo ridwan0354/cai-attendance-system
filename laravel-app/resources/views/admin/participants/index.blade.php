@@ -56,11 +56,13 @@
                     @endforeach
                 </select>
             </div>
-            <div style="width: 220px; min-width: 160px;">
+            <div style="width: 250px; min-width: 180px;">
                 <select name="registration_status" style="width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.875rem; outline: none; background: white; font-family: inherit;">
                     <option value="">— Status Registrasi —</option>
-                    <option value="registered" {{ request('registration_status') == 'registered' ? 'selected' : '' }}>Sudah Registrasi</option>
-                    <option value="unregistered" {{ request('registration_status') == 'unregistered' ? 'selected' : '' }}>Belum Registrasi</option>
+                    <option value="registered" {{ request('registration_status') == 'registered' || request('registration_status') == 'registered_peserta' ? 'selected' : '' }}>Sudah Registrasi (Peserta)</option>
+                    <option value="unregistered" {{ request('registration_status') == 'unregistered' || request('registration_status') == 'unregistered_peserta' ? 'selected' : '' }}>Belum Registrasi (Peserta)</option>
+                    <option value="registered_panitia" {{ request('registration_status') == 'registered_panitia' ? 'selected' : '' }}>Sudah Registrasi (Panitia)</option>
+                    <option value="unregistered_panitia" {{ request('registration_status') == 'unregistered_panitia' ? 'selected' : '' }}>Belum Registrasi (Panitia)</option>
                 </select>
             </div>
             <div style="display: flex; gap: 0.5rem;">
@@ -77,21 +79,24 @@
             <table>
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Nama</th>
-                        <th>Kelompok</th>
+                        <th>NO.</th>
+                        <th>NAMA</th>
+                        <th>KELOMPOK</th>
                         <th>L/P</th>
-                        <th>No. WA</th>
-                        <th>Wajah Terdaftar</th>
-                        <th>Status Registrasi</th>
-                        <th>Aksi</th>
+                        <th>NO. WA</th>
+                        <th>WAJAH TERDAFTAR</th>
+                        <th>STATUS REGISTRASI</th>
+                        <th>AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($participants as $p)
                     <tr>
-                        <td>{{ $p->id }}</td>
-                        <td class="participant-name">{{ $p->name }}</td>
+                        <td style="font-weight: 700; color: var(--neutral-600);">{{ $participants->firstItem() + $loop->index }}</td>
+                        <td class="participant-name">
+                            <div style="font-weight: 600; color: var(--neutral-900);">{{ $p->name }}</div>
+                            <div style="font-size: 0.72rem; color: var(--neutral-400); font-weight: normal; margin-top: 1px;">ID: #{{ $p->id }}</div>
+                        </td>
                         <td>
                             <span class="badge" style="background: {{ $p->group->color }}; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">{{ $p->group->name }}</span>
                         </td>
