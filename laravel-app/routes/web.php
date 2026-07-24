@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\SessionController;
 use App\Http\Controllers\Admin\GroupController;
 use App\Http\Controllers\Admin\SupplyController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\AttendanceController as AdminAttendanceController;
 use App\Http\Controllers\Api\MobileApiController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,11 @@ Route::get('/scanner', [ScannerController::class, 'index'])->name('scanner');
 
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', fn() => redirect()->route('admin.participants.index'))->name('index');
+
+    // Attendance Log
+    Route::resource('attendances', AdminAttendanceController::class)->only(['index', 'store', 'update', 'destroy']);
+
     // Participants
     Route::resource('participants', ParticipantController::class);
     Route::post('participants/{participant}/register-face', [ParticipantController::class, 'registerFace'])
@@ -51,13 +57,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('sessions.deactivate');
     Route::post('sessions/{session}/send-report', [SessionController::class, 'sendReport'])
         ->name('sessions.send-report');
-    // Attendance management per session
-    Route::get('sessions/{session}/attendances', [SessionController::class, 'attendances'])
-        ->name('sessions.attendances');
-    Route::post('sessions/{session}/attendances/add', [SessionController::class, 'addAttendance'])
-        ->name('sessions.attendances.add');
-    Route::delete('sessions/{session}/attendances/{attendance}', [SessionController::class, 'removeAttendance'])
-        ->name('sessions.attendances.remove');
 
     // Groups
     Route::resource('groups', GroupController::class);
