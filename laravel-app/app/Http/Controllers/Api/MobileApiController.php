@@ -280,7 +280,7 @@ class MobileApiController extends Controller
             'participant_id'   => 'required|integer|exists:participants,id',
             'session_id'       => 'required|integer|exists:event_sessions,id',
             'method'           => 'required|in:face,rfid,qr,manual',
-            'confidence_score' => 'nullable|numeric|min:0|max:1',
+            'confidence_score' => 'nullable|numeric|min:0|max:100',
             'check_in_time'    => 'nullable|date',
         ]);
 
@@ -567,7 +567,7 @@ class MobileApiController extends Controller
             'records.*.participant_id'         => 'required|integer',
             'records.*.session_id'             => 'required|integer',
             'records.*.method'                 => 'required|in:face,rfid,qr,manual',
-            'records.*.confidence_score'       => 'nullable|numeric|min:0|max:1',
+            'records.*.confidence_score'       => 'nullable|numeric|min:0|max:100',
             'records.*.check_in_time'          => 'nullable|date',
         ]);
 
@@ -664,6 +664,11 @@ class MobileApiController extends Controller
             'method'           => $method,
             'confidence_score' => $confidenceScore,
         ]);
+
+        if (empty($participant->registered_at)) {
+            $participant->registered_at = $checkedAt;
+            $participant->save();
+        }
 
         // Broadcast WebSocket ke dashboard (jika ada)
         try {
