@@ -24,7 +24,20 @@
                 <div style="font-weight:700;font-size:.95rem;margin-bottom:.25rem;">{{ $g->name }}</div>
                 <div style="font-size:.75rem;color:var(--neutral-500);">{{ $g->region_code }} • {{ $g->participants_count }} {{ stripos($g->name, 'panitia') !== false ? 'panitia' : 'peserta' }}</div>
                 <div style="font-size:.8rem;margin-top:.5rem;">👤 {{ $g->pembina_name }}</div>
-                <div style="font-size:.78rem;color:var(--neutral-500);">📱 {{ $g->pembina_phone }}</div>
+                @php
+                    $cleanPhone = preg_replace('/[^0-9]/', '', $g->pembina_phone ?? '');
+                    if (str_starts_with($cleanPhone, '0')) {
+                        $cleanPhone = '62' . substr($cleanPhone, 1);
+                    }
+                @endphp
+                <div style="font-size:.78rem;color:var(--neutral-500);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;">
+                    <span>📱 {{ $g->pembina_phone }}</span>
+                    @if($cleanPhone)
+                        <a href="https://wa.me/{{ $cleanPhone }}" target="_blank" style="text-decoration:none;font-size:0.68rem;color:var(--primary);font-weight:700;">💬 wa.me</a>
+                        <span style="color:var(--neutral-300);font-size:0.6rem;">|</span>
+                        <a href="https://fonnte.com" target="_blank" style="text-decoration:none;font-size:0.68rem;color:#00875a;font-weight:700;">📡 fonnte.com</a>
+                    @endif
+                </div>
                 <div style="display:flex;gap:.5rem;margin-top:.75rem;">
                     <a href="{{ route('admin.groups.edit', $g) }}" class="btn btn-outline btn-sm">Edit</a>
                     <form action="{{ route('admin.groups.destroy', $g) }}" method="POST" onsubmit="return confirm('Hapus kelompok ini? Semua peserta akan ikut terhapus!')">

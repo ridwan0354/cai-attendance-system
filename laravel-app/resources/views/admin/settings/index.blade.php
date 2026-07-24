@@ -136,6 +136,21 @@
                         </div>
                     </div>
 
+                    <!-- Item 4: Choice of WA Link Format (wa.me / fonnte.com / both) -->
+                    <div style="background: var(--neutral-50); border: 1.5px solid var(--neutral-200); border-radius: 8px; padding: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.9rem; color: var(--neutral-900);">🔗 Opsi Format Link "Hubungi WA"</div>
+                            <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 2px;">Pilih link tujuan saat mengklik tombol Hubungi WA (wa.me, fonnte.com, atau keduanya).</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <select name="wa_contact_link_type" id="wa_contact_link_type" style="padding: 0.45rem 0.75rem; font-weight: 700; font-size: 0.85rem; border-radius: 6px; border: 1.5px solid var(--neutral-300); background: white; color: var(--neutral-800); cursor: pointer;">
+                                <option value="both" {{ $waContactLinkType == 'both' ? 'selected' : '' }}>✨ Keduanya (wa.me & fonnte.com)</option>
+                                <option value="fonnte" {{ $waContactLinkType == 'fonnte' ? 'selected' : '' }}>📡 fonnte.com (Fonnte Web)</option>
+                                <option value="wa_me" {{ $waContactLinkType == 'wa_me' ? 'selected' : '' }}>💬 wa.me (WhatsApp Direct)</option>
+                            </select>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 

@@ -95,7 +95,24 @@
                             <span class="badge" style="background: {{ $p->group->color }}; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.25);">{{ $p->group->name }}</span>
                         </td>
                         <td>{{ $p->gender ?: '-' }}</td>
-                        <td>{{ $p->phone ?: '-' }}</td>
+                        <td>
+                            @if($p->phone)
+                                @php
+                                    $cleanPhone = preg_replace('/[^0-9]/', '', $p->phone);
+                                    if (str_starts_with($cleanPhone, '0')) {
+                                        $cleanPhone = '62' . substr($cleanPhone, 1);
+                                    }
+                                @endphp
+                                <div>{{ $p->phone }}</div>
+                                <div style="display:flex;gap:4px;font-size:0.68rem;margin-top:2px;">
+                                    <a href="https://wa.me/{{ $cleanPhone }}" target="_blank" style="text-decoration:none;color:var(--primary);font-weight:700;">💬 wa.me</a>
+                                    <span style="color:var(--neutral-300);">|</span>
+                                    <a href="https://fonnte.com" target="_blank" style="text-decoration:none;color:#00875a;font-weight:700;">📡 fonnte.com</a>
+                                </div>
+                            @else
+                                -
+                            @endif
+                        </td>
                         <td>
                             @if($p->face_registered)
                                 <span class="badge badge-success">✅ Terdaftar</span>

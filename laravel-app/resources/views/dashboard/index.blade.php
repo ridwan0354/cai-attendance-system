@@ -842,7 +842,20 @@ function renderSessionDetailLists() {
             item.style.borderRadius = '6px';
             item.style.background = 'white';
             
-            const phoneStr = p.phone ? `<a href="https://wa.me/${p.phone}" target="_blank" style="text-decoration:none;font-size:0.65rem;color:var(--primary);font-weight:600;display:inline-flex;align-items:center;gap:2px;margin-top:1px;">💬 Hubungi WA</a>` : '';
+            const linkType = @json(\App\Models\Setting::getVal('wa_contact_link_type', 'both'));
+            let phoneStr = '';
+            if (p.phone) {
+                const cleanPhone = p.phone.replace(/[^0-9]/g, '');
+                const formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.substring(1) : cleanPhone;
+                let links = [];
+                if (linkType === 'wa_me' || linkType === 'both') {
+                    links.push(`<a href="https://wa.me/${formattedPhone}" target="_blank" style="text-decoration:none;font-size:0.65rem;color:var(--primary);font-weight:700;display:inline-flex;align-items:center;gap:2px;">💬 wa.me</a>`);
+                }
+                if (linkType === 'fonnte' || linkType === 'both') {
+                    links.push(`<a href="https://fonnte.com" target="_blank" style="text-decoration:none;font-size:0.65rem;color:#00875a;font-weight:700;display:inline-flex;align-items:center;gap:2px;">📡 fonnte.com</a>`);
+                }
+                phoneStr = `<div style="display:flex;gap:4px;margin-top:2px;align-items:center;">${links.join('<span style="font-size:0.6rem;color:var(--neutral-300);">|</span>')}</div>`;
+            }
             
             item.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 0.65rem;">

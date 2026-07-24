@@ -24,12 +24,14 @@ class SettingController extends Controller
         $notifyPembinaEnabled = Setting::getVal('notify_pembina_enabled', '1');
         $notifyPesertaEnabled = Setting::getVal('notify_peserta_enabled', '1');
         $waSendDelaySeconds = Setting::getVal('wa_send_delay_seconds', '13');
+        $waContactLinkType = Setting::getVal('wa_contact_link_type', 'both');
         $pesertaMessageTemplate = Setting::getVal('peserta_message_template', Setting::defaultPesertaTemplate());
         $pembinaMessageTemplate = Setting::getVal('pembina_message_template', Setting::defaultPembinaTemplate());
 
         return view('admin.settings.index', compact(
             'waGateway', 'fonnteApiKey', 'grooviteApiUrl', 'grooviteWaKey',
             'notifyPembinaEnabled', 'notifyPesertaEnabled', 'waSendDelaySeconds',
+            'waContactLinkType',
             'pesertaMessageTemplate', 'pembinaMessageTemplate'
         ));
     }
@@ -68,6 +70,7 @@ class SettingController extends Controller
             'notify_pembina_enabled' => 'nullable|string|in:0,1',
             'notify_peserta_enabled' => 'nullable|string|in:0,1',
             'wa_send_delay_seconds' => 'required|integer|min:0|max:120',
+            'wa_contact_link_type' => 'required|string|in:wa_me,fonnte,both',
             'peserta_message_template' => 'nullable|string',
             'pembina_message_template' => 'nullable|string',
         ]);
@@ -79,6 +82,7 @@ class SettingController extends Controller
         Setting::setVal('notify_pembina_enabled', $request->input('notify_pembina_enabled', '0'));
         Setting::setVal('notify_peserta_enabled', $request->input('notify_peserta_enabled', '0'));
         Setting::setVal('wa_send_delay_seconds', (string) $validated['wa_send_delay_seconds']);
+        Setting::setVal('wa_contact_link_type', $validated['wa_contact_link_type']);
         Setting::setVal('peserta_message_template', $request->input('peserta_message_template') ?? Setting::defaultPesertaTemplate());
         Setting::setVal('pembina_message_template', $request->input('pembina_message_template') ?? Setting::defaultPembinaTemplate());
 
