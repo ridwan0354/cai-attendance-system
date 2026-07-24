@@ -18,7 +18,7 @@
     .stats-header {
         grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 1rem;
     }
     .stat-card {
@@ -40,6 +40,7 @@
         width: 4px;
     }
     .stat-card.blue::before   { background: var(--primary); }
+    .stat-card.purple::before { background: #8e44ad; }
     .stat-card.green::before  { background: var(--success); }
     .stat-card.red::before    { background: var(--danger); }
     .stat-card.orange::before { background: var(--warning); }
@@ -52,6 +53,7 @@
         flex-shrink: 0;
     }
     .stat-card.blue   .stat-icon { background: var(--primary-lt); }
+    .stat-card.purple .stat-icon { background: #f4ecf7; color: #8e44ad; }
     .stat-card.green  .stat-icon { background: var(--success-lt); }
     .stat-card.red    .stat-icon { background: var(--danger-lt); }
     .stat-card.orange .stat-icon { background: var(--warning-lt); }
@@ -232,6 +234,13 @@
                 <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 5px; font-weight: 600;">
                     👨 <span id="totalMale">{{ $totalMale }}</span> L &nbsp;|&nbsp; 👩 <span id="totalFemale">{{ $totalFemale }}</span> P
                 </div>
+            </div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <div class="stat-value" id="totalRegistered">{{ $totalRegistered }}</div>
+                <div class="stat-label">Sudah Registrasi</div>
             </div>
         </div>
         <div class="stat-card green">
@@ -595,6 +604,9 @@ async function fetchStats() {
 
         // Update header stats
         document.getElementById('totalParticipants').textContent = data.total_participants;
+        if (document.getElementById('totalRegistered')) {
+            document.getElementById('totalRegistered').textContent = data.total_registered ?? 0;
+        }
         document.getElementById('totalPresent').textContent = data.total_present;
         document.getElementById('totalAbsent').textContent  = data.total_absent;
         document.getElementById('percentage').textContent   = data.percentage + '%';

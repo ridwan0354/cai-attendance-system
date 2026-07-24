@@ -29,6 +29,7 @@ class DashboardController extends Controller
         $totalMale = Participant::excludePanitia()->where('gender', 'Laki-laki')->count();
         $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
         $totalParticipants = Participant::excludePanitia()->count();
+        $totalRegistered = Participant::excludePanitia()->whereNotNull('registered_at')->count();
 
         $sessionComparisonStats = $sessions->map(function ($s) use ($totalParticipants) {
             $presentCount = Attendance::where('session_id', $s->id)
@@ -50,7 +51,7 @@ class DashboardController extends Controller
 
         return view('dashboard.index', compact(
             'activeSession', 'sessions', 'groups', 'faceServiceHealthy',
-            'totalMale', 'totalFemale', 'totalParticipants', 'sessionComparisonStats'
+            'totalMale', 'totalFemale', 'totalParticipants', 'totalRegistered', 'sessionComparisonStats'
         ));
     }
 
@@ -108,6 +109,7 @@ class DashboardController extends Controller
 
         $totalMale = Participant::excludePanitia()->where('gender', 'Laki-laki')->count();
         $totalFemale = Participant::excludePanitia()->where('gender', 'Perempuan')->count();
+        $totalRegistered = Participant::excludePanitia()->whereNotNull('registered_at')->count();
 
         $allSessions = Session::orderBy('day_number')->orderBy('start_time')->get();
         $sessionComparisonStats = $allSessions->map(function ($s) use ($totalParticipants) {
@@ -140,6 +142,7 @@ class DashboardController extends Controller
             'total_participants' => $totalParticipants,
             'total_present'      => $totalPresent,
             'total_absent'       => $totalParticipants - $totalPresent,
+            'total_registered'   => $totalRegistered,
             'total_male'         => $totalMale,
             'total_female'       => $totalFemale,
             'percentage'         => $totalParticipants > 0
