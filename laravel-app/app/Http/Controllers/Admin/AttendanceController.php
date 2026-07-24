@@ -13,6 +13,31 @@ class AttendanceController extends Controller
 {
     public function index(Request $request)
     {
+        // Auto-sync any participants who have registered_at set but no attendance record yet
+        $unregisteredAttendances = Participant::whereNotNull('registered_at')
+            ->whereDoesntHave('attendances')
+            ->get();
+
+        if ($unregisteredAttendances->isNotEmpty()) {
+            $targetSession = Session::getActive() ?? Session::orderBy('day_number')->orderBy('start_time')->first();
+            if ($targetSession) {
+                foreach ($unregisteredAttendances as $p) {
+                    Attendance::firstOrCreate(
+                        [
+                            'participant_id' => $p->id,
+                            'session_id'     => $targetSession->id,
+                        ],
+                        [
+                            'check_in_time'    => $p->registered_at ?? now(),
+                            'method'           => $p->face_registered ? 'face' : 'manual',
+                            'confidence_score' => null,
+                            'notes'            => $p->registration_notes ?: 'Registrasi awal peserta',
+                        ]
+                    );
+                }
+            }
+        }
+
         $query = Attendance::with(['participant.group', 'session']);
 
         // Search by participant name

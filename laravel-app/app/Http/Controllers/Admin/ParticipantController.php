@@ -291,7 +291,7 @@ class ParticipantController extends Controller
 
         $participant->supplies()->sync($request->input('supplies', []));
 
-        $activeSession = Session::getActive();
+        $activeSession = Session::getActive() ?? Session::orderBy('day_number')->orderBy('start_time')->first();
         $attendanceCreated = false;
         if ($activeSession) {
             $existing = \App\Models\Attendance::where('participant_id', $participant->id)
