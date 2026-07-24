@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
+use App\Models\Group;
+use App\Models\Participant;
 use App\Models\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -77,21 +80,89 @@ class SessionController extends Controller
         }
 
         $startTime = \Carbon\Carbon::parse($sessionDate . ' ' . $session->start_time);
-        $endTime = \Carbon\Carbon::parse($sessionDate . ' ' . $session->end_time);
+        $endTime   = \Carbon\Carbon::parse($sessionDate . ' ' . $session->end_time);
         $earliestStart = $startTime->copy()->subHour();
 
         if (now()->lt($earliestStart)) {
             return back()->with('error', "Gagal mengaktifkan sesi. Sesi ini baru dapat diaktifkan paling cepat 1 jam sebelum jadwal dimulai (mulai pukul {$earliestStart->format('H:i')}).");
         }
 
-        if (now()->gt($endTime)) {
-            return back()->with('error', "Gagal mengaktifkan sesi. Sesi ini sudah berakhir pada pukul {$endTime->format('H:i')}.");
-        }
-
-        // Deactivate all first
+        // Deactivate all first, then activate
         Session::where('is_active', true)->update(['is_active' => false]);
         $session->update(['is_active' => true]);
-        return back()->with('success', "Sesi '{$session->name}' diaktifkan.");
+
+        $msg = now()->gt($endTime)
+            ? "Sesi '{$session->name}' diaktifkan (di luar jam sesi — mode override admin)."
+            : "Sesi '{$session->name}' diaktifkan.";
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Halaman kelola absensi per sesi.
+     */
+    public function attendances(Session $session)
+    {
+        $attendances = Attendance::where('session_id', $session->id)
+            ->with(['participant.group'])
+            ->orderBy('check_in_time', 'desc')
+            ->get();
+
+        $attendedIds = $attendances->pluck('participant_id');
+
+        $notAttended = Participant::with('group')
+            ->whereNotIn('id', $attendedIds)
+            ->orderBy('name')
+            ->get();
+
+        $groups = Group::orderBy('name')->get();
+
+        return view('admin.sessions.attendances', compact('session', 'attendances', 'notAttended', 'groups'));
+    }
+
+    /**
+     * Tambah absensi manual untuk peserta ke sesi tertentu.
+     */
+    public function addAttendance(Request $request, Session $session)
+    {
+        $request->validate([
+            'participant_id' => 'required|integer|exists:participants,id',
+        ]);
+
+        $exists = Attendance::where('session_id', $session->id)
+            ->where('participant_id', $request->participant_id)
+            ->exists();
+
+        if ($exists) {
+            return back()->with('error', 'Peserta sudah tercatat hadir di sesi ini.');
+        }
+
+        Attendance::create([
+            'participant_id'   => $request->participant_id,
+            'session_id'       => $session->id,
+            'check_in_time'    => now(),
+            'method'           => 'manual',
+            'confidence_score' => null,
+            'notes'            => 'Input manual oleh admin',
+        ]);
+
+        $participant = Participant::find($request->participant_id);
+        return back()->with('success', "Absensi {$participant->name} berhasil ditambahkan ke sesi {$session->name}.");
+    }
+
+    /**
+     * Hapus absensi dari sesi (rollback).
+     */
+    public function removeAttendance(Session $session, Attendance $attendance)
+    {
+        if ($attendance->session_id !== $session->id) {
+            abort(403);
+        }
+
+        $name = $attendance->participant->name ?? 'Peserta';
+        $attendance->delete();
+
+        return back()->with('success', "Absensi {$name} berhasil dihapus dari sesi {$session->name}.");
     }
 
     public function deactivate(Session $session)

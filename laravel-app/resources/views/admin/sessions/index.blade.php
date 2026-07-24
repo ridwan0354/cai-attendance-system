@@ -70,6 +70,7 @@
                                 </form>
                             @endif
                             <a href="{{ route('admin.sessions.edit', $s) }}" class="btn btn-outline btn-sm">Edit</a>
+                            <a href="{{ route('admin.sessions.attendances', $s) }}" class="btn btn-sm" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-weight:600;">📋 Absensi</a>
                             <button type="button" class="btn btn-outline btn-sm" onclick="openReportModal({{ $s->id }}, '{{ addslashes($s->name) }}')" style="border: 1px solid var(--primary); color: var(--primary); background: transparent;">✉️ Kirim Laporan</button>
                             <form action="{{ route('admin.sessions.destroy', $s) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Apakah Anda yakin ingin menghapus sesi {{ addslashes($s->name) }}?')">
                                 @csrf

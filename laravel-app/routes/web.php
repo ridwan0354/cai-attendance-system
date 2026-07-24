@@ -51,6 +51,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('sessions.deactivate');
     Route::post('sessions/{session}/send-report', [SessionController::class, 'sendReport'])
         ->name('sessions.send-report');
+    // Attendance management per session
+    Route::get('sessions/{session}/attendances', [SessionController::class, 'attendances'])
+        ->name('sessions.attendances');
+    Route::post('sessions/{session}/attendances/add', [SessionController::class, 'addAttendance'])
+        ->name('sessions.attendances.add');
+    Route::delete('sessions/{session}/attendances/{attendance}', [SessionController::class, 'removeAttendance'])
+        ->name('sessions.attendances.remove');
 
     // Groups
     Route::resource('groups', GroupController::class);
