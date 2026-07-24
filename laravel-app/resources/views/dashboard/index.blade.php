@@ -447,7 +447,9 @@
                 <select id="detailGroupFilter" onchange="filterSessionDetail()" style="width: 100%; padding: 0.4rem 0.6rem; border: 1.5px solid var(--neutral-200); border-radius: 6px; font-size: 0.8rem; outline: none; background: white; font-family: inherit; cursor: pointer;">
                     <option value="">— Semua Kelompok —</option>
                     @foreach($groups as $g)
-                        <option value="{{ $g->id }}">{{ $g->name }}</option>
+                        @if(!str_contains(strtolower($g->name), 'panitia'))
+                            <option value="{{ $g->id }}">{{ $g->name }}</option>
+                        @endif
                     @endforeach
                 </select>
             </div>

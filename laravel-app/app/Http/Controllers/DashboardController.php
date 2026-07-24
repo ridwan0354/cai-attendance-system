@@ -94,6 +94,7 @@ class DashboardController extends Controller
 
         // Recent check-ins (last 20)
         $recentAttendances = Attendance::where('session_id', $session->id)
+            ->whereHas('participant.group', fn($q) => $q->whereRaw("LOWER(name) NOT LIKE '%panitia%'"))
             ->with(['participant.group'])
             ->orderBy('check_in_time', 'desc')
             ->limit(20)
@@ -163,8 +164,8 @@ class DashboardController extends Controller
     {
         $groupId = $request->input('group_id');
 
-        // Base queries
-        $participantsQuery = Participant::with('group');
+        // Base queries (Exclude Panitia)
+        $participantsQuery = Participant::excludePanitia()->with('group');
         if ($groupId) {
             $participantsQuery->where('group_id', $groupId);
         }
