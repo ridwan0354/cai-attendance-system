@@ -182,6 +182,37 @@ class FonnteWhatsAppService
             return true;
         }
 
+        // Apply throttling delay (default 13 seconds between participant WA messages to prevent anti-spam block)
+        $delayInterval = (int) \App\Models\Setting::getVal('wa_send_delay_seconds', 13);
+        if ($delayInterval > 0) {
+            $lock = \Illuminate\Support\Facades\Cache::lock('wa_participant_send_lock', 10);
+            $targetTimestamp = 0;
+            try {
+                $lock->block(5);
+                $currentTime = time();
+                $lastScheduled = (int) \Illuminate\Support\Facades\Cache::get('wa_last_participant_send_time', 0);
+
+                if ($lastScheduled <= $currentTime) {
+                    $targetTimestamp = $currentTime;
+                } else {
+                    $targetTimestamp = $lastScheduled + $delayInterval;
+                }
+
+                \Illuminate\Support\Facades\Cache::put('wa_last_participant_send_time', $targetTimestamp, 3600);
+            } catch (\Exception $e) {
+                Log::warning("WA Send throttling lock error: " . $e->getMessage());
+                $targetTimestamp = time();
+            } finally {
+                optional($lock)->release();
+            }
+
+            $sleepSeconds = $targetTimestamp - time();
+            if ($sleepSeconds > 0) {
+                Log::info("Throttling WA send to {$participant->name} ({$phone}): sleeping {$sleepSeconds}s (interval: {$delayInterval}s)");
+                sleep($sleepSeconds);
+            }
+        }
+
         $methodLabel = match ($attendance->method) {
             'face' => 'Pindai Wajah (Face Recognition) 📷',
             'qr' => 'Pindai Kode QR 📱',

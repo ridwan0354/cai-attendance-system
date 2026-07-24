@@ -23,6 +23,9 @@ class SendCheckInConfirmation implements ShouldQueue
 
     public function handle(FonnteWhatsAppService $waService): void
     {
+        @set_time_limit(0);
+        @ignore_user_abort(true);
+
         $this->attendance->loadMissing(['participant.group', 'session']);
 
         $waService->sendCheckInConfirmation($this->attendance);

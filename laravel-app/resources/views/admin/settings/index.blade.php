@@ -124,6 +124,18 @@
                         </div>
                     </div>
 
+                    <!-- Item 3: Anti-Spam Delay -->
+                    <div style="background: var(--neutral-50); border: 1.5px solid var(--neutral-200); border-radius: 8px; padding: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.9rem; color: var(--neutral-900);">⏱️ Jeda Pengiriman WA (Anti-Spam)</div>
+                            <div style="font-size: 0.75rem; color: var(--neutral-500); margin-top: 2px;">Interval bertahap antrian pengiriman WA antar peserta agar nomor aman dari spam ban.</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.35rem;">
+                            <input type="number" name="wa_send_delay_seconds" id="wa_send_delay_seconds" value="{{ $waSendDelaySeconds }}" min="0" max="120" style="width: 70px; padding: 0.45rem; font-weight: 800; font-size: 0.85rem; border-radius: 6px; border: 1.5px solid var(--neutral-300); text-align: center; background: white;" required>
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--neutral-700);">Detik</span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
