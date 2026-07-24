@@ -52,19 +52,19 @@
                     <div style="margin-bottom: 1.25rem;">
                         <label for="wa_gateway" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Pilih Gateway API</label>
                         <select name="wa_gateway" id="wa_gateway" style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; background: white;" onchange="toggleGatewayFields()">
-                            <option value="fonnte" {{ $waGateway === 'fonnte' ? 'selected' : '' }}>Fonnte Gateway</option>
-                            <option value="groovite" {{ $waGateway === 'groovite' ? 'selected' : '' }}>Custom Gateway (Groovite / Galipat)</option>
+                            <option value="fonnte" {{ $waGateway === 'fonnte' ? 'selected' : '' }}>📡 Fonnte Gateway (fonnte.com)</option>
+                            <option value="groovite" {{ $waGateway === 'groovite' ? 'selected' : '' }}>⚡ Custom Gateway (Groovite / Galipat)</option>
                         </select>
                     </div>
 
                     <!-- Fonnte Fields -->
                     <div id="fonnte_fields" style="margin-bottom: 1rem; display: {{ $waGateway === 'fonnte' ? 'block' : 'none' }};">
-                        <label for="fonnte_api_key" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Token API Fonnte</label>
-                        <input type="text" name="fonnte_api_key" id="fonnte_api_key" value="{{ $fonnteApiKey }}" placeholder="Masukkan token Fonnte..." 
+                        <label for="fonnte_api_key" style="display: block; font-size: 0.82rem; font-weight: 700; color: var(--neutral-700); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Token API Fonnte (fonnte.com)</label>
+                        <input type="text" name="fonnte_api_key" id="fonnte_api_key" value="{{ $fonnteApiKey }}" placeholder="Masukkan token API Fonnte..." 
                                style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--neutral-300); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.15s;"
                                onfocus="this.style.borderColor='var(--primary)';" onblur="this.style.borderColor='var(--neutral-300)';">
                         <span style="font-size: 0.75rem; color: var(--neutral-500); display: block; margin-top: 6px; line-height: 1.4;">
-                            Token API Fonnte digunakan untuk mengirim pesan via Fonnte.
+                            Token API diambil dari akun Fonnte Anda di <a href="https://fonnte.com" target="_blank" style="color:var(--primary);font-weight:700;">https://fonnte.com/</a> (Menu Device → Token).
                         </span>
                     </div>
 
