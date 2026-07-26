@@ -31,6 +31,9 @@ class FonnteWhatsAppService
     public function sendMessage(string $phone, string $message): array
     {
         $normalizedPhone = $this->normalizePhone($phone);
+        if (empty($normalizedPhone) || strlen($normalizedPhone) < 10) {
+            return ['success' => false, 'error' => 'Nomor HP tidak valid / kosong (minimal 10 digit).'];
+        }
 
         if ($this->gateway === 'groovite') {
             if (empty($this->grooviteWaKey)) {
@@ -83,18 +86,31 @@ class FonnteWhatsAppService
                     'message' => $message,
                 ]);
 
-                $responseData = $response->json();
+                $responseData = $response->json() ?? [];
 
-                if ($response->successful() && ($responseData['status'] ?? false)) {
+                $isSuccess = $response->successful() && (
+                    ($responseData['status'] ?? false) === true ||
+                    ($responseData['status'] ?? '') === 'true' ||
+                    ($responseData['status'] ?? 0) === 1 ||
+                    ($responseData['status'] ?? '') === '1' ||
+                    !empty($responseData['id'])
+                );
+
+                if ($isSuccess) {
+                    $msgId = is_array($responseData['id'] ?? null) 
+                        ? implode(',', $responseData['id']) 
+                        : ($responseData['id'] ?? null);
+
                     return [
                         'success' => true,
-                        'message_id' => $responseData['id'] ?? null,
+                        'message_id' => $msgId,
                     ];
                 }
 
+                $errorMsg = $responseData['reason'] ?? $responseData['message'] ?? json_encode($responseData);
                 return [
                     'success' => false,
-                    'error' => $responseData['reason'] ?? json_encode($responseData),
+                    'error' => is_string($errorMsg) ? $errorMsg : json_encode($errorMsg),
                 ];
 
             } catch (\Exception $e) {
@@ -495,17 +511,21 @@ class FonnteWhatsAppService
      */
     private function normalizePhone(string $phone): string
     {
-        $phone = preg_replace('/\D/', '', $phone);
+        $digits = preg_replace('/\D/', '', $phone);
 
-        if (str_starts_with($phone, '0')) {
-            return '62' . substr($phone, 1);
+        if (empty($digits)) {
+            return '';
         }
 
-        if (!str_starts_with($phone, '62')) {
-            return '62' . $phone;
+        if (str_starts_with($digits, '0')) {
+            return '62' . substr($digits, 1);
         }
 
-        return $phone;
+        if (!str_starts_with($digits, '62')) {
+            return '62' . $digits;
+        }
+
+        return $digits;
     }
 }
 

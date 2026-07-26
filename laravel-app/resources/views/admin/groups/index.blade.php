@@ -104,8 +104,11 @@
                                 ⏳ WA Antrean (Proses Pengiriman)
                             </div>
                         @else
-                            <div style="font-size: 0.72rem; color: #d93025; background: #fce8e6; border: 1px solid #fad2cf; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="{{ $g->latestNotificationLog->error_message }}">
-                                ❌ WA Gagal Terkirim
+                            <div style="font-size: 0.72rem; color: #d93025; background: #fce8e6; border: 1px solid #fad2cf; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; flex-wrap: wrap;" title="{{ $g->latestNotificationLog->error_message }}">
+                                <span>❌ WA Gagal</span>
+                                @if($g->latestNotificationLog->error_message)
+                                    <span style="font-weight: 400; opacity: 0.9;">({{ Str::limit($g->latestNotificationLog->error_message, 25) }})</span>
+                                @endif
                             </div>
                         @endif
                     @else
