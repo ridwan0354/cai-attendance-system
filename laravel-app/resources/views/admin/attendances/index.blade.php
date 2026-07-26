@@ -297,11 +297,21 @@
         <form action="{{ route('admin.attendances.store') }}" method="POST">
             @csrf
             <div style="margin-bottom: 1rem;">
+                <label style="display:block;font-size:.84rem;font-weight:600;margin-bottom:.4rem; color: var(--neutral-700);">Filter Kelompok (Opsional)</label>
+                <select id="manualFilterGroup" onchange="filterManualParticipants(this.value)" style="width:100%;padding:.55rem .8rem;border:1.5px solid var(--neutral-200);border-radius:6px;font-size:.875rem;outline:none;background:white;font-family:inherit;">
+                    <option value="">— Semua Kelompok —</option>
+                    @foreach($groups as $g)
+                        <option value="{{ $g->id }}">{{ $g->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
                 <label style="display:block;font-size:.84rem;font-weight:600;margin-bottom:.4rem; color: var(--neutral-700);">Pilih Peserta *</label>
-                <select name="participant_id" required style="width:100%;padding:.55rem .8rem;border:1.5px solid var(--neutral-200);border-radius:6px;font-size:.875rem;outline:none;background:white;font-family:inherit;">
+                <select name="participant_id" id="manualParticipantSelect" required style="width:100%;padding:.55rem .8rem;border:1.5px solid var(--neutral-200);border-radius:6px;font-size:.875rem;outline:none;background:white;font-family:inherit;">
                     <option value="">— Cari / Pilih Peserta —</option>
                     @foreach($participants as $p)
-                        <option value="{{ $p->id }}">{{ $p->name }} ({{ $p->group->name ?? 'Tanpa Kelompok' }})</option>
+                        <option value="{{ $p->id }}" data-group-id="{{ $p->group_id }}">{{ $p->name }} ({{ $p->group->name ?? 'Tanpa Kelompok' }})</option>
                     @endforeach
                 </select>
             </div>
@@ -330,7 +340,27 @@
 </div>
 
 <script>
+function filterManualParticipants(groupId) {
+    const select = document.getElementById('manualParticipantSelect');
+    const options = select.querySelectorAll('option');
+    select.value = '';
+    
+    options.forEach(opt => {
+        if (!opt.value) return;
+        const optGroupId = opt.getAttribute('data-group-id');
+        if (!groupId || optGroupId == groupId) {
+            opt.style.display = 'block';
+            opt.disabled = false;
+        } else {
+            opt.style.display = 'none';
+            opt.disabled = true;
+        }
+    });
+}
+
 function openManualModal() {
+    document.getElementById('manualFilterGroup').value = '';
+    filterManualParticipants('');
     document.getElementById('manualModal').style.display = 'flex';
 }
 function closeManualModal() {
