@@ -292,22 +292,23 @@ class FonnteWhatsAppService
      */
     public function sendAllSessionsRecapReport(Group $group): bool
     {
-        // Check toggle ON/OFF setting
-        $notifyEnabled = (string) \App\Models\Setting::getVal('notify_pembina_enabled', '1');
-        if ($notifyEnabled !== '1') {
-            Log::info("WA Attendance report to pembina disabled in settings. Skipping.");
-            return true;
-        }
-
         $message = $this->buildAllSessionsRecapMessage($group);
         $phone = $this->normalizePhone($group->pembina_phone);
 
-        if (empty($phone)) {
-            Log::warning("No phone number found for pembina of group {$group->name}. Skipping.");
+        $firstSessionId = Session::orderBy('day_number')->orderBy('start_time')->first()?->id ?? 1;
+
+        if (empty($phone) || strlen($phone) < 10) {
+            NotificationLog::create([
+                'group_id'     => $group->id,
+                'session_id'   => $firstSessionId,
+                'phone_number' => $group->pembina_phone ?? '-',
+                'message'      => $message,
+                'status'       => 'failed',
+                'error_message'=> 'Nomor HP Pembina belum diisi / tidak valid.',
+            ]);
+            Log::warning("No valid phone number found for pembina of group {$group->name}. Skipping.");
             return false;
         }
-
-        $firstSessionId = Session::orderBy('day_number')->orderBy('start_time')->first()?->id ?? 1;
 
         // Log attempt
         $log = NotificationLog::create([
@@ -350,11 +351,11 @@ class FonnteWhatsAppService
         $totalParticipantsCount = $participants->count();
 
         $lines = [];
-        $lines[] = "📊 *REKAP KEHADIRAN SEMUA SESI KEGIATAN*";
-        $lines[] = "----------------------------------------";
+        $lines[] = "📊 *REKAP KEHADIRAN SEMUA SESI*";
+        $lines[] = "--------------------------------";
         $lines[] = "📌 *Kelompok:* " . $group->name;
         $lines[] = "👤 *Pembina:* " . ($group->pembina_name ?? '-');
-        $lines[] = "📅 *Total Sesi Kegiatan:* " . $totalSessionsCount . " Sesi";
+        $lines[] = "📅 *Total Sesi:* " . $totalSessionsCount . " Sesi | *Peserta:* " . $totalParticipantsCount . " Orang";
         $lines[] = "";
         $lines[] = "👥 *DAFTAR KEHADIRAN PESERTA:*";
 
@@ -372,19 +373,19 @@ class FonnteWhatsAppService
                 $pct = $totalSessionsCount > 0 ? round(($attendedCount / $totalSessionsCount) * 100) : 0;
                 $genderLabel = $p->gender === 'Perempuan' ? 'P' : 'L';
 
-                $starBadge = ($attendedCount === $totalSessionsCount && $totalSessionsCount > 0) ? " ⭐ (Full)" : "";
+                $starBadge = ($attendedCount === $totalSessionsCount && $totalSessionsCount > 0) ? " ⭐" : "";
 
-                $lines[] = "{$no}. *{$p->name}* ({$genderLabel})";
-                $lines[] = "   └ Hadir: *{$attendedCount}/{$totalSessionsCount} Sesi* ({$pct}%){$starBadge}";
+                $itemLine = "{$no}. *{$p->name}* ({$genderLabel}) : *{$attendedCount}/{$totalSessionsCount} Sesi* ({$pct}%){$starBadge}";
 
                 // Mention missed sessions if any
                 if ($attendedCount < $totalSessionsCount && $totalSessionsCount > 0) {
                     $missedSessions = $allSessions->reject(fn($s) => $attendedSessionIds->contains($s->id))->pluck('name')->toArray();
                     if (!empty($missedSessions)) {
-                        $lines[] = "   └ Absen: " . implode(', ', $missedSessions);
+                        $itemLine .= "\n   └ Absen: " . implode(', ', $missedSessions);
                     }
                 }
 
+                $lines[] = $itemLine;
                 $no++;
             }
 
@@ -393,14 +394,12 @@ class FonnteWhatsAppService
                 : 0;
 
             $lines[] = "";
-            $lines[] = "📈 *REKAPITULASI KELOMPOK:*";
-            $lines[] = "• Total Peserta: {$totalParticipantsCount} Orang";
-            $lines[] = "• Rata-rata Kehadiran: {$overallPct}%";
-            $lines[] = "• Waktu Rekap: " . now()->format('d/m/Y H:i') . " WITA";
+            $lines[] = "📈 *Rata-rata Kehadiran:* {$overallPct}%";
+            $lines[] = "📅 *Waktu Rekap:* " . now()->setTimezone('Asia/Makassar')->format('d/m/Y H:i') . " WITA";
         }
 
         $lines[] = "";
-        $lines[] = "_CAI LOMBOK 2026 Attendance System_";
+        $lines[] = "_CAI LOMBOK 2026_";
 
         return implode("\n", $lines);
     }

@@ -83,13 +83,20 @@ class GroupController extends Controller
         return redirect()->route('admin.groups.index')->with('success', 'Kelompok dihapus.');
     }
 
-    public function sendRecap(Group $group)
+    public function sendRecap(Group $group, \App\Services\FonnteWhatsAppService $waService)
     {
-        \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group);
-        return back()->with('success', "Rekap laporan kehadiran semua sesi untuk kelompok '{$group->name}' berhasil dijadwalkan ke Pembina.");
+        $success = $waService->sendAllSessionsRecapReport($group);
+        if ($success) {
+            return back()->with('success', "Rekap laporan WA untuk kelompok '{$group->name}' berhasil terkirim ke Pembina ({$group->pembina_phone}).");
+        }
+
+        $latestLog = $group->latestNotificationLog;
+        $errorMsg = $latestLog?->error_message ?? 'Koneksi Fonnte bermasalah / nomor tidak aktif';
+
+        return back()->with('warning', "Gagal mengirim Rekap WA ke Pembina '{$group->name}': {$errorMsg}");
     }
 
-    public function sendAllSessionsReport(Request $request)
+    public function sendAllSessionsReport(Request $request, \App\Services\FonnteWhatsAppService $waService)
     {
         $validated = $request->validate([
             'group_ids'   => 'required|array',
@@ -97,12 +104,26 @@ class GroupController extends Controller
         ]);
 
         $groups = Group::whereIn('id', $validated['group_ids'])->get();
+        $successCount = 0;
+        $failCount = 0;
 
         foreach ($groups as $index => $group) {
-            \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group)
-                ->delay(now()->addSeconds($index * 15));
+            $ok = $waService->sendAllSessionsRecapReport($group);
+            if ($ok) {
+                $successCount++;
+            } else {
+                $failCount++;
+            }
+
+            if ($index < count($groups) - 1) {
+                sleep(2);
+            }
         }
 
-        return back()->with('success', "Rekap laporan semua sesi kegiatan berhasil dijadwalkan untuk dikirim ke " . $groups->count() . " kelompok pembina.");
+        if ($failCount === 0) {
+            return back()->with('success', "Rekap laporan semua sesi kegiatan berhasil terkirim ke {$successCount} kelompok pembina!");
+        }
+
+        return back()->with('warning', "Laporan terkirim ke {$successCount} kelompok, namun gagal ke {$failCount} kelompok. Cek status di kartu kelompok.");
     }
 }
