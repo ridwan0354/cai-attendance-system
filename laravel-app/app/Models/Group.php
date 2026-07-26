@@ -21,6 +21,11 @@ class Group extends Model
         return $this->hasMany(NotificationLog::class);
     }
 
+    public function latestNotificationLog(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(NotificationLog::class)->latestOfMany();
+    }
+
     /**
      * Get attendance stats for a specific session.
      */

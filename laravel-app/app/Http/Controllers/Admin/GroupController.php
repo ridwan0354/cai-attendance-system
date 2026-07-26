@@ -10,7 +10,7 @@ class GroupController extends Controller
 {
     public function index()
     {
-        $groups = Group::withCount('participants')->get();
+        $groups = Group::withCount('participants')->with('latestNotificationLog')->get();
         return view('admin.groups.index', compact('groups'));
     }
 

@@ -91,6 +91,29 @@
                         <a href="https://wa.me/{{ $cleanPhone }}" target="_blank" style="text-decoration:none; font-size: 0.68rem; color: var(--primary); font-weight: 700;">💬 wa.me</a>
                     @endif
                 </div>
+
+                <!-- Status WA Terakhir -->
+                <div style="margin-top: 0.6rem;">
+                    @if($g->latestNotificationLog)
+                        @if($g->latestNotificationLog->status === 'sent')
+                            <div style="font-size: 0.72rem; color: #00875a; background: #e6f4ea; border: 1px solid #b7e1cd; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                                ✅ WA Terkirim ({{ $g->latestNotificationLog->sent_at?->setTimezone('Asia/Makassar')->format('d/m H:i') ?? $g->latestNotificationLog->created_at->setTimezone('Asia/Makassar')->format('d/m H:i') }} WITA)
+                            </div>
+                        @elseif($g->latestNotificationLog->status === 'pending')
+                            <div style="font-size: 0.72rem; color: #b76e00; background: #fef7e0; border: 1px solid #fce8b2; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                                ⏳ WA Antrean (Proses Pengiriman)
+                            </div>
+                        @else
+                            <div style="font-size: 0.72rem; color: #d93025; background: #fce8e6; border: 1px solid #fad2cf; padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="{{ $g->latestNotificationLog->error_message }}">
+                                ❌ WA Gagal Terkirim
+                            </div>
+                        @endif
+                    @else
+                        <div style="font-size: 0.72rem; color: var(--neutral-400);">
+                            💬 Belum ada log laporan WA
+                        </div>
+                    @endif
+                </div>
             </div>
 
             <div style="display: flex; gap: 0.4rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--neutral-150); flex-wrap: wrap; align-items: center;">
