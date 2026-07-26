@@ -109,8 +109,9 @@ class SessionController extends Controller
 
         $groups = \App\Models\Group::whereIn('id', $validated['group_ids'])->get();
 
-        foreach ($groups as $group) {
-            \App\Jobs\SendWhatsAppReport::dispatch($group, $session, true);
+        foreach ($groups as $index => $group) {
+            \App\Jobs\SendWhatsAppReport::dispatch($group, $session, true)
+                ->delay(now()->addSeconds($index * 15));
         }
 
         return back()->with('success', "Laporan absensi sesi '{$session->name}' berhasil dijadwalkan untuk dikirim ke " . $groups->count() . " kelompok pembina.");

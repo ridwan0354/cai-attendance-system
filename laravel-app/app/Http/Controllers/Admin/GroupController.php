@@ -98,8 +98,9 @@ class GroupController extends Controller
 
         $groups = Group::whereIn('id', $validated['group_ids'])->get();
 
-        foreach ($groups as $group) {
-            \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group);
+        foreach ($groups as $index => $group) {
+            \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group)
+                ->delay(now()->addSeconds($index * 15));
         }
 
         return back()->with('success', "Rekap laporan semua sesi kegiatan berhasil dijadwalkan untuk dikirim ke " . $groups->count() . " kelompok pembina.");
