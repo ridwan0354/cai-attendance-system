@@ -82,4 +82,26 @@ class GroupController extends Controller
         $group->delete();
         return redirect()->route('admin.groups.index')->with('success', 'Kelompok dihapus.');
     }
+
+    public function sendRecap(Group $group)
+    {
+        \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group);
+        return back()->with('success', "Rekap laporan kehadiran semua sesi untuk kelompok '{$group->name}' berhasil dijadwalkan ke Pembina.");
+    }
+
+    public function sendAllSessionsReport(Request $request)
+    {
+        $validated = $request->validate([
+            'group_ids'   => 'required|array',
+            'group_ids.*' => 'exists:groups,id',
+        ]);
+
+        $groups = Group::whereIn('id', $validated['group_ids'])->get();
+
+        foreach ($groups as $group) {
+            \App\Jobs\SendWhatsAppAllSessionsReport::dispatch($group);
+        }
+
+        return back()->with('success', "Rekap laporan semua sesi kegiatan berhasil dijadwalkan untuk dikirim ke " . $groups->count() . " kelompok pembina.");
+    }
 }

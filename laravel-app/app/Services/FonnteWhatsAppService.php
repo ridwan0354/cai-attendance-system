@@ -272,6 +272,124 @@ class FonnteWhatsAppService
     }
 
     /**
+     * Send all sessions attendance summary report to a group's Pembina via WhatsApp.
+     */
+    public function sendAllSessionsRecapReport(Group $group): bool
+    {
+        // Check toggle ON/OFF setting
+        $notifyEnabled = (string) \App\Models\Setting::getVal('notify_pembina_enabled', '1');
+        if ($notifyEnabled !== '1') {
+            Log::info("WA Attendance report to pembina disabled in settings. Skipping.");
+            return true;
+        }
+
+        $message = $this->buildAllSessionsRecapMessage($group);
+        $phone = $this->normalizePhone($group->pembina_phone);
+
+        if (empty($phone)) {
+            Log::warning("No phone number found for pembina of group {$group->name}. Skipping.");
+            return false;
+        }
+
+        $firstSessionId = Session::orderBy('day_number')->orderBy('start_time')->first()?->id ?? 1;
+
+        // Log attempt
+        $log = NotificationLog::create([
+            'group_id'     => $group->id,
+            'session_id'   => $firstSessionId,
+            'phone_number' => $phone,
+            'message'      => $message,
+            'status'       => 'pending',
+        ]);
+
+        $res = $this->sendMessage($phone, $message);
+
+        if ($res['success']) {
+            $log->update([
+                'status'            => 'sent',
+                'fonnte_message_id' => $res['message_id'] ?? null,
+                'sent_at'           => now(),
+            ]);
+            Log::info("WA All Sessions Recap sent to {$group->pembina_name} ({$phone})");
+            return true;
+        }
+
+        $log->update([
+            'status'        => 'failed',
+            'error_message' => $res['error'] ?? 'Unknown error',
+        ]);
+        Log::error('WA send all sessions recap report failed', ['error' => $res['error'] ?? 'Unknown error']);
+        return false;
+    }
+
+    /**
+     * Build the formatted WhatsApp all-sessions attendance recap message.
+     */
+    private function buildAllSessionsRecapMessage(Group $group): string
+    {
+        $allSessions = Session::orderBy('day_number')->orderBy('start_time')->get();
+        $totalSessionsCount = $allSessions->count();
+
+        $participants = $group->participants()->with('attendances')->orderBy('name')->get();
+        $totalParticipantsCount = $participants->count();
+
+        $lines = [];
+        $lines[] = "📊 *REKAP KEHADIRAN SEMUA SESI KEGIATAN*";
+        $lines[] = "----------------------------------------";
+        $lines[] = "📌 *Kelompok:* " . $group->name;
+        $lines[] = "👤 *Pembina:* " . ($group->pembina_name ?? '-');
+        $lines[] = "📅 *Total Sesi Kegiatan:* " . $totalSessionsCount . " Sesi";
+        $lines[] = "";
+        $lines[] = "👥 *DAFTAR KEHADIRAN PESERTA:*";
+
+        if ($participants->isEmpty()) {
+            $lines[] = "_(Belum ada data peserta dalam kelompok ini)_";
+        } else {
+            $no = 1;
+            $totalPresentSum = 0;
+
+            foreach ($participants as $p) {
+                $attendedSessionIds = $p->attendances->pluck('session_id')->unique();
+                $attendedCount = $attendedSessionIds->count();
+                $totalPresentSum += $attendedCount;
+
+                $pct = $totalSessionsCount > 0 ? round(($attendedCount / $totalSessionsCount) * 100) : 0;
+                $genderLabel = $p->gender === 'Perempuan' ? 'P' : 'L';
+
+                $starBadge = ($attendedCount === $totalSessionsCount && $totalSessionsCount > 0) ? " ⭐ (Full)" : "";
+
+                $lines[] = "{$no}. *{$p->name}* ({$genderLabel})";
+                $lines[] = "   └ Hadir: *{$attendedCount}/{$totalSessionsCount} Sesi* ({$pct}%){$starBadge}";
+
+                // Mention missed sessions if any
+                if ($attendedCount < $totalSessionsCount && $totalSessionsCount > 0) {
+                    $missedSessions = $allSessions->reject(fn($s) => $attendedSessionIds->contains($s->id))->pluck('name')->toArray();
+                    if (!empty($missedSessions)) {
+                        $lines[] = "   └ Absen: " . implode(', ', $missedSessions);
+                    }
+                }
+
+                $no++;
+            }
+
+            $overallPct = ($totalParticipantsCount > 0 && $totalSessionsCount > 0) 
+                ? round(($totalPresentSum / ($totalParticipantsCount * $totalSessionsCount)) * 100) 
+                : 0;
+
+            $lines[] = "";
+            $lines[] = "📈 *REKAPITULASI KELOMPOK:*";
+            $lines[] = "• Total Peserta: {$totalParticipantsCount} Orang";
+            $lines[] = "• Rata-rata Kehadiran: {$overallPct}%";
+            $lines[] = "• Waktu Rekap: " . now()->format('d/m/Y H:i') . " WITA";
+        }
+
+        $lines[] = "";
+        $lines[] = "_CAI LOMBOK 2026 Attendance System_";
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * Build the formatted WhatsApp attendance report message.
      */
     private function buildReportMessage(Group $group, Session $session): string

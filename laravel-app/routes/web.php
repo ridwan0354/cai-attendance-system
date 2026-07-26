@@ -59,6 +59,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->name('sessions.send-report');
 
     // Groups
+    Route::post('groups/send-all-sessions-report', [GroupController::class, 'sendAllSessionsReport'])
+        ->name('groups.send-all-sessions-report');
+    Route::post('groups/{group}/send-recap', [GroupController::class, 'sendRecap'])
+        ->name('groups.send-recap');
     Route::resource('groups', GroupController::class);
 
     // Supplies
